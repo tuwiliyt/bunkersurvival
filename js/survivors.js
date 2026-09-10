@@ -1468,6 +1468,71 @@ class Survivor {
 
     const shoulderY = -15 + bob;
 
+    // ── All-Hands Boss Combat: Holding Assault Rifle & Firing ───────────────
+    if (this.bossMode) {
+      const isShooting = (this.shootFlash || 0) > 0;
+      const recoil = isShooting ? -2.5 : 0;
+
+      // Arm holding rifle
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-1, shoulderY);
+      ctx.lineTo(6 + recoil, shoulderY + 2);
+      ctx.lineTo(12 + recoil, shoulderY + 1);
+      ctx.stroke();
+
+      // Tactical Rifle Body
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(4 + recoil, shoulderY - 2, 13, 3.5);
+      // Rifle Barrel
+      ctx.fillStyle = '#485460';
+      ctx.fillRect(17 + recoil, shoulderY - 1, 6, 1.8);
+      // Rifle Stock
+      ctx.fillStyle = '#3d3d3d';
+      ctx.fillRect(1 + recoil, shoulderY - 1, 4, 3);
+      // Curved Magazine
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(9 + recoil, shoulderY + 1.5, 2.5, 4);
+
+      // Muzzle Flash & Fire Sparks
+      if (isShooting) {
+        ctx.fillStyle = '#FFF275';
+        ctx.beginPath();
+        ctx.arc(24 + recoil, shoulderY - 0.2, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FF5722';
+        ctx.beginPath();
+        ctx.arc(26 + recoil, shoulderY - 0.2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    // ── Sniper Supply Runner: Carrying Food & Water Canteen Satchel ─────────
+    if (this.isSniperSupplyRunner) {
+      ctx.strokeStyle = '#8B5A2B';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-1, shoulderY);
+      ctx.lineTo(5, shoulderY + 3);
+      ctx.lineTo(8, shoulderY + 5);
+      ctx.stroke();
+
+      // Supply satchel
+      ctx.fillStyle = '#5c3818';
+      ctx.fillRect(4, -13 + bob, 10, 8);
+      ctx.strokeStyle = '#3d2510';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(4, -13 + bob, 10, 8);
+
+      // Supply icon on satchel
+      ctx.fillStyle = '#2ecc71';
+      ctx.font = 'bold 5px monospace';
+      ctx.fillText('RATS', 5, -8 + bob);
+      return;
+    }
+
     // Carrying Ammo Crate
     if (this.carryingAmmo) {
       ctx.strokeStyle = arc.isMarcus ? '#8b4513' : '#34495e';

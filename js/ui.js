@@ -296,7 +296,11 @@ class UIManager {
       const xpRatio = Math.min(1.0, s.xp / s.xpToNext);
 
       let statusBadge = '<span style="color: #2ecc71; font-weight: bold;">⚙️ Working</span>';
-      if (s.ammoDeliveryTask) {
+      if (s.bossMode) {
+        statusBadge = `<span style="color: #e74c3c; font-weight: bold; background: rgba(231,76,60,0.2); padding: 1px 4px; border-radius: 3px;">⚔️ BOSS DEFENSE</span>`;
+      } else if (s.isSniperSupplyRunner) {
+        statusBadge = `<span style="color: #00cec9; font-weight: bold;">📦 SNIPER SUPPLY RUN</span>`;
+      } else if (s.ammoDeliveryTask) {
         statusBadge = `<span class="badge-carrier">📦 RUNNER: ${s.ammoDeliveryTask.turret.side.toUpperCase()} TURRET</span>`;
       } else if (s.builderRepairTask) {
         statusBadge = `<span style="color: #e67e22; font-weight: bold;">🔧 Repairing Defenses</span>`;
@@ -314,6 +318,8 @@ class UIManager {
         statusBadge = '<span style="color: #2ed573; font-weight: bold;">🎯 Watchtower Overwatch</span>';
       }
 
+      const combatDmg = s.getCombatDamage ? Math.round(s.getCombatDamage()) : 20;
+
       return `
         <div class="survivor-roster-row">
           <div class="survivor-main-info">
@@ -323,6 +329,9 @@ class UIManager {
                 <strong>${s.name}</strong> - <span class="text-accent">${s.role}</span>
                 <span style="background: rgba(241, 196, 15, 0.2); border: 1px solid #f1c40f; color: #f1c40f; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 6px;">
                   ⭐ Lv.${s.level} ${levelTitle} (+${effBonus}% Spd)
+                </span>
+                <span style="background: rgba(231, 76, 60, 0.2); border: 1px solid #e74c3c; color: #ff7675; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 4px;">
+                  🎯 Combat Lv.${s.combatLevel || 1} (${combatDmg} Dmg)
                 </span>
                 <span style="margin-left: 8px; font-size: 10px;">${statusBadge}</span>
               </div>

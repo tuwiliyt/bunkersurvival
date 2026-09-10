@@ -73,6 +73,13 @@ window.addEventListener('DOMContentLoaded', () => {
     window.uiManager.openSurvivorsRoster();
   });
 
+  const bossBtn = document.getElementById('btn-spawn-boss');
+  if (bossBtn) {
+    bossBtn.addEventListener('click', () => {
+      window.gameEngine.spawnBoss();
+    });
+  }
+
   document.getElementById('btn-open-research').addEventListener('click', () => {
     window.uiManager.openResearchModal();
   });
@@ -99,6 +106,9 @@ window.addEventListener('DOMContentLoaded', () => {
     } else if (e.key === 'm' || e.key === 'M') {
       // Toggle manual crosshair aim
       window.gameEngine.toggleManualAim();
+    } else if (e.key === 'b' || e.key === 'B') {
+      // Summon Zombie Boss Encounter
+      window.gameEngine.spawnBoss();
     } else if (e.key === 'c' || e.key === 'C') {
       toggleCRT();
     } else if (e.key === 'r' || e.key === 'R') {

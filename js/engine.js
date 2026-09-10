@@ -2030,6 +2030,23 @@ class GameEngine {
       }
 
       ctx.restore();
+
+      // Sniper speech / status bubble (e.g. rest, supply receipt)
+      if (sniperSurvivor && sniperSurvivor.speechText && sniperSurvivor.speechTimer > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1;
+        const textW = Math.max(70, sniperSurvivor.speechText.length * 6.5);
+        ctx.fillRect(sniperX - textW / 2, sniperY - 36, textW, 13);
+        ctx.strokeRect(sniperX - textW / 2, sniperY - 36, textW, 13);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 7px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.fillText(sniperSurvivor.speechText, sniperX, sniperY - 27);
+        ctx.restore();
+      }
+
       ctx.restore();
     }
 

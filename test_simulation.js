@@ -35,9 +35,9 @@ const standaloneHtml = fs.readFileSync(standalonePath, 'utf-8');
 const requiredIds = [
   'game-canvas', 'hud-day', 'hud-pop', 'res-ammo', 'res-power', 'res-food', 'res-water',
   'res-metal', 'res-gunpowder', 'res-fuel', 'hud-radar', 'btn-speed-pause', 'btn-speed-1x',
-  'btn-speed-2x', 'btn-speed-5x', 'btn-manual-aim', 'btn-open-roster', 'btn-open-research',
+  'btn-speed-2x', 'btn-speed-5x', 'btn-manual-aim', 'btn-spawn-boss', 'btn-open-roster', 'btn-open-research',
   'btn-open-expedition', 'btn-audio-toggle', 'btn-crt-toggle', 'btn-open-help', 'crt-overlay',
-  'left-turret-hud', 'right-turret-hud', 'modal-overlay', 'modal-content'
+  'left-turret-hud', 'right-turret-hud', 'sniper-hud', 'turret3-hud', 'turret4-hud', 'modal-overlay', 'modal-content'
 ];
 
 for (const id of requiredIds) {
@@ -545,9 +545,12 @@ injuredSurvivor.update(0.1);
 assert("Injured survivor autonomously seeks medical clinic", injuredSurvivor.needState === 'seeking_medical');
 
 // Smart AI: Jackson sniper overwatch
-const jacksonData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'jackson');
-const jackson = new sandbox.Survivor({ ...jacksonData, id: 'test_jackson' });
-engine.survivors.push(jackson);
+let jackson = engine.survivors.find(s => s.role && s.role.toLowerCase().includes('sniper'));
+if (!jackson) {
+  const jacksonData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'jackson');
+  jackson = new sandbox.Survivor({ ...jacksonData, id: 'jackson' });
+  engine.survivors.push(jackson);
+}
 const surfaceZombie = new sandbox.Zombie('shambler', 'left');
 surfaceZombie.x = 500; // Within sniper overwatch perimeter
 engine.zombies.push(surfaceZombie);
@@ -557,6 +560,80 @@ engine.resources.ammo = 20;
 engine.updateSniper(0.1);
 assert("Jackson delivers sniper headshot damage to surface zombie", surfaceZombie.hp < initialZombieHp);
 
+// -------------------------------------------------------------
+// STEP 8: Zombie Boss, All-Hands Combat, Sniper Logistics, Fence
+// -------------------------------------------------------------
+console.log("\n--- 8. AUDITING BOSS ENCOUNTER, ALL-HANDS DEFENSE & LOGISTICS ---");
+
+// 1. ZombieBoss class exists and initializes
+assert("ZombieBoss class exists", typeof sandbox.ZombieBoss === 'function');
+const boss = new sandbox.ZombieBoss('right');
+assert("ZombieBoss has massive HP (>= 4200)", boss.hp >= 4200);
+assert("ZombieBoss has high damage and slam ability", boss.damage >= 35 && boss.slamRadius > 0);
+
+// 2. Boss takes damage and triggers rage mode
+boss.takeDamage(boss.maxHp * 0.75); // down to 25% HP
+assert("Boss HP drops on damage", boss.hp < boss.maxHp);
+boss.update(0.1, engine);
+assert("Boss enrages below 30% HP with increased speed", boss.isEnraged && boss.speed > 30);
+
+// 3. Survivor Combat System: getCombatDamage & auto-upgrades
+const soldier = engine.survivors[0];
+const baseDmg = soldier.getCombatDamage();
+assert("Survivor has combat damage calculation", typeof baseDmg === 'number' && baseDmg > 0);
+soldier.addCombatXP(150);
+assert("Survivor combat level auto-upgrades with XP", soldier.combatLevel >= 2);
+assert("Upgraded combat level increases weapon damage", soldier.getCombatDamage() > baseDmg);
+
+// 4. GameEngine.spawnBoss triggers all-hands combat mode
+engine.spawnBoss();
+assert("GameEngine spawns active boss", engine.bossActive && engine.boss !== null);
+const combatSurvivors = engine.survivors.filter(s => s.bossMode);
+assert("All alive survivors enter boss combat mode", combatSurvivors.length > 0);
+assert("Survivors receive assigned surface positions", combatSurvivors.every(s => typeof s.surfaceX === 'number'));
+
+// 5. Survivors fire at boss during updateSurvivorCombat
+const initialBossHp = engine.boss.hp;
+engine.resources.ammo = 50;
+engine.survivors.forEach(s => {
+  s.x = s.surfaceX;
+  s.y = sandbox.CONFIG.SURFACE_Y - 8;
+  s.shootTimer = 5.0;
+}); // in position at surface firing line and ready to shoot
+engine.updateSurvivorCombat(0.2);
+assert("Survivors fire weapons and damage boss", engine.boss.hp < initialBossHp);
+
+// 6. Sniper Logistics: supply runner delivery
+engine.bossActive = false; // end boss fight for logistics test
+engine.boss = null;
+engine.survivors.forEach(s => { s.bossMode = false; s.isBusy = false; });
+engine._sniperSupplyTimer = 50; // trigger supply run
+engine.resources.food = 20;
+engine.resources.water = 20;
+jackson.hunger = 40;
+jackson.thirst = 35;
+engine.updateSniperLogistics(0.1);
+const supplyRunner = engine.survivors.find(s => s.isSniperSupplyRunner);
+assert("Survivor dispatched as sniper food/water supply runner", !!supplyRunner);
+
+// 7. Supply runner delivers to watchtower and restores sniper needs
+supplyRunner.x = 662;
+supplyRunner.y = 56;
+engine.updateSniperLogistics(0.1);
+assert("Sniper hunger restored after supply delivery", jackson.hunger > 40);
+assert("Sniper thirst restored after supply delivery", jackson.thirst > 35);
+assert("Supply runner returns to duty after delivery", !supplyRunner.isSniperSupplyRunner);
+
+// 8. Sniper rest rotation reduces fatigue
+jackson.fatigue = 85;
+engine._sniperRestTimer = 130;
+engine.updateSniperLogistics(0.1);
+assert("Sniper takes brief rest rotation and recovers fatigue", jackson.fatigue < 85);
+
+// 9. Perimeter Fence exists in engine
+assert("GameEngine has drawFence method", typeof engine.drawFence === 'function');
+
 console.log("\n===============================================================================");
 console.log(`🎉 ALL ${passedTests}/${totalTests} AUDIT TESTS & SIMULATION CHECKS PASSED PERFECTLY!`);
 console.log("===============================================================================");
+

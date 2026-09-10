@@ -908,6 +908,7 @@ body.crt-active .turret-hud-overlay {
       <button id="btn-speed-2x" class="btn btn-sm">2x</button>
       <button id="btn-speed-5x" class="btn btn-sm">5x</button>
       <button id="btn-manual-aim" class="btn btn-sm" title="Toggle Manual Crosshair Aim (Hotkey: M)">🎯 Manual Aim: OFF</button>
+      <button id="btn-spawn-boss" class="btn btn-sm btn-danger" title="Summon Zombie Boss Encounter (Hotkey: B)">💀 Boss</button>
       <button id="btn-open-roster" class="btn btn-sm btn-primary">👥 Crew</button>
       <button id="btn-open-research" class="btn btn-sm btn-accent">🔬 Tech</button>
       <button id="btn-open-expedition" class="btn btn-sm btn-action">🌲 Expedition</button>
@@ -8716,6 +8717,71 @@ class Survivor {
 
     const shoulderY = -15 + bob;
 
+    // ── All-Hands Boss Combat: Holding Assault Rifle & Firing ───────────────
+    if (this.bossMode) {
+      const isShooting = (this.shootFlash || 0) > 0;
+      const recoil = isShooting ? -2.5 : 0;
+
+      // Arm holding rifle
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-1, shoulderY);
+      ctx.lineTo(6 + recoil, shoulderY + 2);
+      ctx.lineTo(12 + recoil, shoulderY + 1);
+      ctx.stroke();
+
+      // Tactical Rifle Body
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(4 + recoil, shoulderY - 2, 13, 3.5);
+      // Rifle Barrel
+      ctx.fillStyle = '#485460';
+      ctx.fillRect(17 + recoil, shoulderY - 1, 6, 1.8);
+      // Rifle Stock
+      ctx.fillStyle = '#3d3d3d';
+      ctx.fillRect(1 + recoil, shoulderY - 1, 4, 3);
+      // Curved Magazine
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(9 + recoil, shoulderY + 1.5, 2.5, 4);
+
+      // Muzzle Flash & Fire Sparks
+      if (isShooting) {
+        ctx.fillStyle = '#FFF275';
+        ctx.beginPath();
+        ctx.arc(24 + recoil, shoulderY - 0.2, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FF5722';
+        ctx.beginPath();
+        ctx.arc(26 + recoil, shoulderY - 0.2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    // ── Sniper Supply Runner: Carrying Food & Water Canteen Satchel ─────────
+    if (this.isSniperSupplyRunner) {
+      ctx.strokeStyle = '#8B5A2B';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-1, shoulderY);
+      ctx.lineTo(5, shoulderY + 3);
+      ctx.lineTo(8, shoulderY + 5);
+      ctx.stroke();
+
+      // Supply satchel
+      ctx.fillStyle = '#5c3818';
+      ctx.fillRect(4, -13 + bob, 10, 8);
+      ctx.strokeStyle = '#3d2510';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(4, -13 + bob, 10, 8);
+
+      // Supply icon on satchel
+      ctx.fillStyle = '#2ecc71';
+      ctx.font = 'bold 5px monospace';
+      ctx.fillText('RATS', 5, -8 + bob);
+      return;
+    }
+
     // Carrying Ammo Crate
     if (this.carryingAmmo) {
       ctx.strokeStyle = arc.isMarcus ? '#8b4513' : '#34495e';
@@ -11214,6 +11280,23 @@ class GameEngine {
       }
 
       ctx.restore();
+
+      // Sniper speech / status bubble (e.g. rest, supply receipt)
+      if (sniperSurvivor && sniperSurvivor.speechText && sniperSurvivor.speechTimer > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1;
+        const textW = Math.max(70, sniperSurvivor.speechText.length * 6.5);
+        ctx.fillRect(sniperX - textW / 2, sniperY - 36, textW, 13);
+        ctx.strokeRect(sniperX - textW / 2, sniperY - 36, textW, 13);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 7px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.fillText(sniperSurvivor.speechText, sniperX, sniperY - 27);
+        ctx.restore();
+      }
+
       ctx.restore();
     }
 
@@ -12788,7 +12871,11 @@ class UIManager {
       const xpRatio = Math.min(1.0, s.xp / s.xpToNext);
 
       let statusBadge = '<span style="color: #2ecc71; font-weight: bold;">⚙️ Working</span>';
-      if (s.ammoDeliveryTask) {
+      if (s.bossMode) {
+        statusBadge = `<span style="color: #e74c3c; font-weight: bold; background: rgba(231,76,60,0.2); padding: 1px 4px; border-radius: 3px;">⚔️ BOSS DEFENSE</span>`;
+      } else if (s.isSniperSupplyRunner) {
+        statusBadge = `<span style="color: #00cec9; font-weight: bold;">📦 SNIPER SUPPLY RUN</span>`;
+      } else if (s.ammoDeliveryTask) {
         statusBadge = `<span class="badge-carrier">📦 RUNNER: ${s.ammoDeliveryTask.turret.side.toUpperCase()} TURRET</span>`;
       } else if (s.builderRepairTask) {
         statusBadge = `<span style="color: #e67e22; font-weight: bold;">🔧 Repairing Defenses</span>`;
@@ -12806,6 +12893,8 @@ class UIManager {
         statusBadge = '<span style="color: #2ed573; font-weight: bold;">🎯 Watchtower Overwatch</span>';
       }
 
+      const combatDmg = s.getCombatDamage ? Math.round(s.getCombatDamage()) : 20;
+
       return `
         <div class="survivor-roster-row">
           <div class="survivor-main-info">
@@ -12815,6 +12904,9 @@ class UIManager {
                 <strong>${s.name}</strong> - <span class="text-accent">${s.role}</span>
                 <span style="background: rgba(241, 196, 15, 0.2); border: 1px solid #f1c40f; color: #f1c40f; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 6px;">
                   ⭐ Lv.${s.level} ${levelTitle} (+${effBonus}% Spd)
+                </span>
+                <span style="background: rgba(231, 76, 60, 0.2); border: 1px solid #e74c3c; color: #ff7675; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 4px;">
+                  🎯 Combat Lv.${s.combatLevel || 1} (${combatDmg} Dmg)
                 </span>
                 <span style="margin-left: 8px; font-size: 10px;">${statusBadge}</span>
               </div>
@@ -13212,6 +13304,13 @@ window.addEventListener('DOMContentLoaded', () => {
     window.uiManager.openSurvivorsRoster();
   });
 
+  const bossBtn = document.getElementById('btn-spawn-boss');
+  if (bossBtn) {
+    bossBtn.addEventListener('click', () => {
+      window.gameEngine.spawnBoss();
+    });
+  }
+
   document.getElementById('btn-open-research').addEventListener('click', () => {
     window.uiManager.openResearchModal();
   });
@@ -13238,6 +13337,9 @@ window.addEventListener('DOMContentLoaded', () => {
     } else if (e.key === 'm' || e.key === 'M') {
       // Toggle manual crosshair aim
       window.gameEngine.toggleManualAim();
+    } else if (e.key === 'b' || e.key === 'B') {
+      // Summon Zombie Boss Encounter
+      window.gameEngine.spawnBoss();
     } else if (e.key === 'c' || e.key === 'C') {
       toggleCRT();
     } else if (e.key === 'r' || e.key === 'R') {
