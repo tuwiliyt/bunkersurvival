@@ -307,6 +307,50 @@ body.crt-active .turret-hud-overlay {
   right: 14px;
 }
 
+/* Sniper Watchtower HUD — bottom-center */
+.turret-hud-overlay.sniper {
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  bottom: 14px;
+  width: 240px;
+  border-color: #c0392b;
+}
+
+/* Roof Turret 3 blueprint/status — upper-left of center */
+.turret-hud-overlay.roof-left {
+  left: 50%;
+  margin-left: -260px;
+  top: 12px;
+  width: 200px;
+  border-color: #00D2FF;
+}
+
+/* Roof Turret 4 blueprint/status — upper-right of center */
+.turret-hud-overlay.roof-right {
+  left: 50%;
+  margin-left: 60px;
+  top: 12px;
+  width: 200px;
+  border-color: #00D2FF;
+}
+
+.sniper-hud-header {
+  font-size: 10px;
+  font-weight: bold;
+  color: #e74c3c;
+  letter-spacing: 0.6px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 3px;
+}
+
+.sniper-hud-row {
+  font-size: 10px;
+  color: #bdc3c7;
+  margin: 2px 0;
+}
+
 .turret-hud-header {
   display: flex;
   justify-content: space-between;
@@ -828,8 +872,8 @@ body.crt-active .turret-hud-overlay {
       <div class="res-item res-ammo" title="Turret Ammunition (CRITICAL SUPPLY)">
         <span class="icon">📦</span> <span>AMMO:</span> <span id="res-ammo">250/1000</span>
       </div>
-      <div class="res-item" title="Generator Electrical Power">
-        <span class="icon">⚡</span> <span>PWR:</span> <span id="res-power">100/100</span>
+      <div class="res-item" title="Power Grid & Battery Storage Buffer (Solar + Diesel Generator)">
+        <span class="icon">⚡</span> <span>PWR:</span> <span id="res-power">200/200</span>
       </div>
       <div class="res-item" title="Food Rations">
         <span class="icon">🍲</span> <span>FOOD:</span> <span id="res-food">80/200</span>
@@ -884,6 +928,15 @@ body.crt-active .turret-hud-overlay {
 
     <!-- Right Turret Floating HUD Widget -->
     <div id="right-turret-hud" class="turret-hud-overlay right"></div>
+
+    <!-- Sniper Watchtower HUD Widget -->
+    <div id="sniper-hud" class="turret-hud-overlay sniper"></div>
+
+    <!-- Roof Turret 3 (Left) Construction / Status Widget -->
+    <div id="turret3-hud" class="turret-hud-overlay roof-left"></div>
+
+    <!-- Roof Turret 4 (Right) Construction / Status Widget -->
+    <div id="turret4-hud" class="turret-hud-overlay roof-right"></div>
   </main>
 
   <!-- Interactive Modal Container -->
@@ -931,6 +984,10 @@ class SoundSystem {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  playTurretFire(type = 'normal') {
+    this.playGunshot(type);
   }
 
   // Turret gunshot
@@ -1009,6 +1066,144 @@ class SoundSystem {
 
     osc.start(t);
     osc.stop(t + 0.1);
+  }
+
+  // Heavy .50 Caliber AP Marksman Rifle Gunshot Crack & Resonant Tail
+  playSniperRifle() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+
+    // 1. Supersonic ballistic shockwave crack (sharp high-frequency transient)
+    const crackBufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+    const crackBuffer = this.ctx.createBuffer(1, crackBufferSize, this.ctx.sampleRate);
+    const crackData = crackBuffer.getChannelData(0);
+    for (let i = 0; i < crackBufferSize; i++) {
+      crackData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.022));
+    }
+    const crackNoise = this.ctx.createBufferSource();
+    crackNoise.buffer = crackBuffer;
+
+    const crackFilter = this.ctx.createBiquadFilter();
+    crackFilter.type = 'bandpass';
+    crackFilter.frequency.setValueAtTime(2800, t);
+    crackFilter.frequency.exponentialRampToValueAtTime(320, t + 0.1);
+    crackFilter.Q.value = 3.2;
+
+    const crackGain = this.ctx.createGain();
+    crackGain.gain.setValueAtTime(0.9, t);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+    crackNoise.connect(crackFilter);
+    crackFilter.connect(crackGain);
+    crackGain.connect(this.masterGain);
+    crackNoise.start(t);
+
+    // 2. Heavy .50 BMG explosive chamber pressure punch
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'triangle';
+    subOsc.frequency.setValueAtTime(125, t);
+    subOsc.frequency.exponentialRampToValueAtTime(24, t + 0.28);
+
+    subGain.gain.setValueAtTime(0.85, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.masterGain);
+    subOsc.start(t);
+    subOsc.stop(t + 0.32);
+
+    // 3. Wide resonant forest echo & rolling atmospheric rumble
+    const echoBufferSize = Math.floor(this.ctx.sampleRate * 0.55);
+    const echoBuffer = this.ctx.createBuffer(1, echoBufferSize, this.ctx.sampleRate);
+    const echoData = echoBuffer.getChannelData(0);
+    for (let i = 0; i < echoBufferSize; i++) {
+      echoData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+    }
+    const echoNoise = this.ctx.createBufferSource();
+    echoNoise.buffer = echoBuffer;
+
+    const echoFilter = this.ctx.createBiquadFilter();
+    echoFilter.type = 'lowpass';
+    echoFilter.frequency.setValueAtTime(420, t);
+    echoFilter.frequency.exponentialRampToValueAtTime(65, t + 0.52);
+
+    const echoGain = this.ctx.createGain();
+    echoGain.gain.setValueAtTime(0.42, t + 0.03);
+    echoGain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+
+    echoNoise.connect(echoFilter);
+    echoFilter.connect(echoGain);
+    echoGain.connect(this.masterGain);
+    echoNoise.start(t + 0.02);
+  }
+
+  // Metallic Bolt-Action Cycle (Handle lift, slide back, casing eject, lock into battery)
+  playBoltCycle() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+
+    // Stage 1: Bolt handle up & unlock (sharp metallic snap)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(1500, t);
+    osc1.frequency.exponentialRampToValueAtTime(420, t + 0.05);
+    gain1.gain.setValueAtTime(0.32, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+    osc1.start(t);
+    osc1.stop(t + 0.07);
+
+    // Stage 2: Heavy bolt slide rearward & brass ejection clink
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(700, t2);
+      osc2.frequency.exponentialRampToValueAtTime(240, t2 + 0.07);
+      gain2.gain.setValueAtTime(0.25, t2);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.08);
+      osc2.connect(gain2);
+      gain2.connect(this.masterGain);
+      osc2.start(t2);
+      osc2.stop(t2 + 0.09);
+
+      // Casing bounce ring
+      const ringOsc = this.ctx.createOscillator();
+      const ringGain = this.ctx.createGain();
+      ringOsc.type = 'sine';
+      ringOsc.frequency.setValueAtTime(2800, t2);
+      ringOsc.frequency.exponentialRampToValueAtTime(1100, t2 + 0.12);
+      ringGain.gain.setValueAtTime(0.18, t2);
+      ringGain.gain.exponentialRampToValueAtTime(0.001, t2 + 0.13);
+      ringOsc.connect(ringGain);
+      ringGain.connect(this.masterGain);
+      ringOsc.start(t2);
+      ringOsc.stop(t2 + 0.14);
+    }, 75);
+
+    // Stage 3: Steel bolt slide forward & chamber lock into battery
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const t3 = this.ctx.currentTime;
+      const osc3 = this.ctx.createOscillator();
+      const gain3 = this.ctx.createGain();
+      osc3.type = 'triangle';
+      osc3.frequency.setValueAtTime(320, t3);
+      osc3.frequency.exponentialRampToValueAtTime(1150, t3 + 0.07);
+      gain3.gain.setValueAtTime(0.38, t3);
+      gain3.gain.exponentialRampToValueAtTime(0.001, t3 + 0.08);
+      osc3.connect(gain3);
+      gain3.connect(this.masterGain);
+      osc3.start(t3);
+      osc3.stop(t3 + 0.09);
+    }, 230);
   }
 
   // Empty turret click
@@ -1337,6 +1532,106 @@ class SoundSystem {
     osc.stop(t + dur);
   }
 
+  // Metallic hammer strike on steel mounting plate
+  playHammer() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const dur = 0.14;
+
+    // 1. High metallic ring ping
+    const ping = this.ctx.createOscillator();
+    const pingGain = this.ctx.createGain();
+    ping.type = 'triangle';
+    ping.frequency.setValueAtTime(1650 + Math.random() * 200, t);
+    ping.frequency.exponentialRampToValueAtTime(800, t + dur);
+    pingGain.gain.setValueAtTime(0.25, t);
+    pingGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    ping.connect(pingGain);
+    pingGain.connect(this.masterGain);
+    ping.start(t);
+    ping.stop(t + dur);
+
+    // 2. Heavy anvil/steel thud impact
+    const thud = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(220, t);
+    thud.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+    thudGain.gain.setValueAtTime(0.4, t);
+    thudGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    thud.connect(thudGain);
+    thudGain.connect(this.masterGain);
+    thud.start(t);
+    thud.stop(t + 0.1);
+  }
+
+  // Electric welding arc sizzle & spark crackle
+  playWeldSparks() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const dur = 0.09;
+
+    const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1.0 : 0.4);
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2400, t);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start(t);
+  }
+
+  // Triumphant rising construction completion chime
+  playConstructionChime() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    // Ascending arpeggio: C5 (523.25), E5 (659.25), G5 (783.99), C6 (1046.50)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const startTime = t + idx * 0.08;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + 0.52);
+
+      // Harmonic chime shimmer
+      const harm = this.ctx.createOscillator();
+      const harmGain = this.ctx.createGain();
+      harm.type = 'triangle';
+      harm.frequency.setValueAtTime(freq * 2, startTime);
+      harmGain.gain.setValueAtTime(0.12, startTime);
+      harmGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+      harm.connect(harmGain);
+      harmGain.connect(this.masterGain);
+      harm.start(startTime);
+      harm.stop(startTime + 0.37);
+    });
+  }
+
   // Retro CRT switch click
   playCRTClick(on = true) {
     if (this.muted || !this.ctx) return;
@@ -1354,9 +1649,95 @@ class SoundSystem {
     osc.start(t);
     osc.stop(t + 0.05);
   }
+
+  // High-caliber sniper rifle crack + supersonic tail
+  playSniperShot() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const bufSz = Math.floor(this.ctx.sampleRate * 0.12);
+    const buf = this.ctx.createBuffer(1, bufSz, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.018));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const filt = this.ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 900;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    noise.connect(filt); filt.connect(g); g.connect(this.masterGain);
+    noise.start(t);
+    const osc = this.ctx.createOscillator();
+    const og = this.ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(22, t + 0.18);
+    og.gain.setValueAtTime(0.7, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    osc.connect(og); og.connect(this.masterGain);
+    osc.start(t); osc.stop(t + 0.2);
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const og2 = this.ctx.createGain();
+      osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(62, t2);
+      osc2.frequency.exponentialRampToValueAtTime(28, t2 + 0.4);
+      og2.gain.setValueAtTime(0.18, t2);
+      og2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.45);
+      osc2.connect(og2); og2.connect(this.masterGain);
+      osc2.start(t2); osc2.stop(t2 + 0.5);
+    }, 90);
+  }
+
+  // Construction: hammering + electric welding buzz
+  playConstruction() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1100, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.06);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t + 0.08);
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const g2 = this.ctx.createGain();
+      osc2.type = 'sawtooth'; osc2.frequency.value = 160;
+      g2.gain.setValueAtTime(0.12, t2);
+      g2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.15);
+      osc2.connect(g2); g2.connect(this.masterGain);
+      osc2.start(t2); osc2.stop(t2 + 0.16);
+    }, 120);
+  }
+
+  // Triumphant fanfare when refugee is rescued
+  playRefugeeFanfare() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      const st = t + i * 0.08;
+      g.gain.setValueAtTime(0.22, st);
+      g.gain.exponentialRampToValueAtTime(0.001, st + 0.5);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(st); osc.stop(st + 0.55);
+    });
+  }
 }
 
 window.soundSystem = new SoundSystem();
+
 
 
 // --- config.js ---
@@ -1378,7 +1759,7 @@ const CONFIG = {
   // Initial Resources
   INITIAL_RESOURCES: {
     ammo: 250,       // Crucial focus
-    power: 100,      // Max 100
+    power: 200,      // Max 200 (Emergency Battery Storage Buffer)
     food: 80,
     water: 80,
     metal: 60,
@@ -1390,7 +1771,7 @@ const CONFIG = {
   // Max Resource Capacities
   RESOURCE_CAPS: {
     ammo: 1000,
-    power: 100,
+    power: 200,      // Expanded Emergency Battery Storage Buffer (was 100)
     food: 200,
     water: 200,
     metal: 300,
@@ -1407,6 +1788,20 @@ const CONFIG = {
   THIRST_THRESHOLD: 40,
   FATIGUE_REST_THRESHOLD: 80,
   FATIGUE_WAKE_THRESHOLD: 15,
+
+  // Solar Power & Renewable Energy System (Cabin Roof Array)
+  SOLAR_POWER_OUTPUT: 15.0, // +15 kW passive clean energy during daylight hours
+  SOLAR_DAY_START: 6.0,     // 06:00
+  SOLAR_DAY_END: 18.0,      // 18:00
+
+  // Generator & Power Grid Logistics
+  GENERATOR_BASE_OUTPUT: 30.0, // Base output kW when generator is active (was 15-20 kW)
+  GENERATOR_FUEL_RATE: 0.04,   // 0.04 fuel/sec (increased efficiency: 750 kW·s per unit of fuel)
+  POWER_AUTONOMOUS_THRESHOLD: 0.40, // 40% battery threshold (80 kW) triggers autonomous fueling & maintenance
+  POWER_RESTORED_THRESHOLD: 0.85,   // 85% battery threshold (170 kW) restores survivor to original post
+
+  // Bio-Refinery Passive Emergency Production
+  BIO_REFINERY_PASSIVE_RATE: 0.18, // 0.18 fuel/sec passive generation even with 0 workers
 
   // Ammo Supply Logistics
   AMMO_DELIVERY_THRESHOLD: 0.35, // Restock turret when ammo < 35%
@@ -1474,11 +1869,11 @@ const CONFIG = {
 
     // Floor 4: Sub-level 4 (Deep Infrastructure)
     { id: 'generator', floor: 4, col: 0, name: 'Diesel Generator', icon: '⚡', color: '#68451f', 
-      desc: 'Main power plant providing electricity to the bunker & turrets.', 
-      produces: 'power', rate: 15.0, cost: { fuel: 0.15 }, maxWorkers: 2, powerCost: 0 },
+      desc: 'Heavy industrial backup power plant providing high-yield electricity to bunker & turrets.', 
+      produces: 'power', rate: 30.0, cost: { fuel: 0.04 }, maxWorkers: 2, powerCost: 0 },
     { id: 'bio_refinery', floor: 4, col: 1, name: 'Bio-Fuel Refinery', icon: '🛢️', color: '#494420', 
-      desc: 'Refines organic biomass and deep oil into diesel fuel.', 
-      produces: 'fuel', rate: 0.6, maxWorkers: 2, powerCost: 3 },
+      desc: 'Refines organic biomass into diesel fuel (passive compost fermentation + active distillation).', 
+      produces: 'fuel', rate: 0.75, maxWorkers: 2, powerCost: 3 },
     { id: 'mine', floor: 4, col: 2, name: 'Deep Excavation', icon: '⛏️', color: '#3a3532', 
       desc: 'Mines subterranean rock for raw metals and sulfur.', 
       produces: 'metal', rate: 1.4, maxWorkers: 3, powerCost: 3 },
@@ -1504,6 +1899,10 @@ const CONFIG = {
     brute: { name: 'Goliath Brute', hp: 450, speed: 14, damage: 35, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
   },
 
+  // Population & Living Quarters
+  BASE_POPULATION_CAP: 8,
+  POPULATION_PER_QUARTERS_TIER: 2,
+
   // Initial Survivors
   INITIAL_SURVIVORS: [
     { id: 's1', name: 'Marcus Cole', role: 'Chief Gunsmith', skill: 'Munitions', avatar: '👨‍🔧', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 95, assignedRoom: 'armory', specialty: 'armory' },
@@ -1511,6 +1910,99 @@ const CONFIG = {
     { id: 's3', name: 'Doc Sarah Chen', role: 'Field Physician', skill: 'Medicine', avatar: '👩‍⚕️', hp: 100, maxHp: 100, hunger: 95, thirst: 95, fatigue: 0, morale: 88, assignedRoom: 'clinic', specialty: 'clinic' },
     { id: 's4', name: 'Toby Miller', role: 'Agri-Specialist', skill: 'Botany', avatar: '👨‍🌾', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 92, assignedRoom: 'hydroponics', specialty: 'hydroponics' },
     { id: 's5', name: 'Aiden Brooks', role: 'Security Guard', skill: 'Ballistics', avatar: '👮‍♂️', hp: 100, maxHp: 100, hunger: 88, thirst: 85, fatigue: 0, morale: 90, assignedRoom: 'security', specialty: 'security' }
+  ],
+
+  // 6 New Unique Survivor Archetypes (Rescued from Horde Waves)
+  UNIQUE_ARCHETYPES: [
+    {
+      id: 'jackson',
+      name: 'Jackson Cross',
+      role: 'Master Sniper',
+      skill: 'Marksman',
+      avatar: '🎯',
+      specialty: 'security',
+      assignedRoom: 'security',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Expert marksman with lethal rifle skills. Provides surface watchtower sniper overwatch.',
+      quote: 'Target acquired. Down in one.'
+    },
+    {
+      id: 'maya',
+      name: 'Maya Lin',
+      role: 'Electrical Engineer',
+      skill: 'Power Grid',
+      avatar: '⚡',
+      specialty: 'generator',
+      assignedRoom: 'generator',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Maintains generator, solar grid, and electrical systems. Autonomously prevents power blackouts.',
+      quote: 'Keep the turbines humming, keep the lights burning.'
+    },
+    {
+      id: 'carlos',
+      name: 'Carlos Ortiz',
+      role: 'Master Builder',
+      skill: 'Architecture',
+      avatar: '👷‍♂️',
+      specialty: 'workshop',
+      assignedRoom: 'workshop',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Architect and builder. Autonomously repairs damaged defenses and speeds up construction.',
+      quote: 'Measure twice, fortify once.'
+    },
+    {
+      id: 'samantha',
+      name: 'Samantha Bell',
+      role: 'Logistics Porter',
+      skill: 'Speed Courier',
+      avatar: '🏃‍♀️',
+      specialty: 'armory',
+      assignedRoom: 'armory',
+      hp: 100,
+      maxHp: 100,
+      speed: 78,
+      desc: 'Dedicated rapid ammo carrier (+50% sprint speed). Ensures turrets never run dry.',
+      quote: 'Ammo delivery inbound, moving fast!'
+    },
+    {
+      id: 'lucas',
+      name: 'Lucas Reed',
+      role: 'Combat Medic',
+      skill: 'Trauma Surgery',
+      avatar: '💉',
+      specialty: 'clinic',
+      assignedRoom: 'clinic',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Battle-hardened physician. Administers rapid triage and medical care in the clinic.',
+      quote: 'Hold on, I will get you patched up.'
+    },
+    {
+      id: 'boris',
+      name: 'Boris Volkov',
+      role: 'Heavy Demolitionist',
+      skill: 'High Explosives',
+      avatar: '💣',
+      specialty: 'armory',
+      assignedRoom: 'armory',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Heavy ordnance specialist. Vastly accelerates munitions production and crafts explosive rounds.',
+      quote: 'More gunpowder, bigger boom!'
+    }
+  ],
+
+  // Extra Veteran Survivors for population expansion up to 16+
+  EXTRA_ARCHETYPES: [
+    { name: 'Harper Vance', role: 'Field Scout', skill: 'Tracking', avatar: '🏹', specialty: 'airlock', assignedRoom: 'airlock' },
+    { name: 'Viktor Kozlov', role: 'Chief Blacksmith', skill: 'Metallurgy', avatar: '⚒️', specialty: 'mine', assignedRoom: 'mine' },
+    { name: 'Chloe Bennett', role: 'Bio-Chemist', skill: 'Synthetics', avatar: '🧪', specialty: 'gunpowder_lab', assignedRoom: 'gunpowder_lab' },
+    { name: 'Derek Stone', role: 'Veteran Marine', skill: 'Tactics', avatar: '🎖️', specialty: 'security', assignedRoom: 'security' },
+    { name: 'Zoe Gallagher', role: 'Hydroponics Botanist', skill: 'Agriculture', avatar: '🌿', specialty: 'hydroponics', assignedRoom: 'hydroponics' },
+    { name: 'Mason Wright', role: 'Tunnel Excavator', skill: 'Mining', avatar: '⛏️', specialty: 'mine', assignedRoom: 'mine' }
   ]
 };
 
@@ -1822,6 +2314,29 @@ class ParticleSystem {
     });
   }
 
+  // Heavy .50 Caliber AP Brass Casing Ejection from Watchtower
+  spawnSniperCasing(x, y) {
+    this.particles.push({
+      x, y,
+      vx: -1.6 - Math.random() * 2.4,
+      vy: -2.8 - Math.random() * 2.2,
+      angle: Math.random() * Math.PI * 2,
+      vRot: -14 - Math.random() * 24,
+      width: 7.2,
+      height: 2.8,
+      color: '#e5bf3b',
+      bounces: 0,
+      maxBounces: 3,
+      settled: false,
+      gravity: 15.0,
+      floorY: 65, // Watchtower wooden platform deck
+      life: 6.0,
+      maxLife: 6.0,
+      isCasing: true,
+      type: 'brass_casing'
+    });
+  }
+
   // Coolant steam discharge for plasma weaponry
   spawnCoolantPuff(x, y, dir = -1) {
     for (let i = 0; i < 3; i++) {
@@ -1947,6 +2462,17 @@ class ParticleSystem {
     });
   }
 
+  // Supersonic .50 Caliber Glowing Gold Sniper Tracer Beam
+  addSniperTracer(x1, y1, x2, y2) {
+    this.tracers.push({
+      x1, y1, x2, y2,
+      life: 0.22,
+      maxLife: 0.22,
+      color: '#ffd700',
+      isSniper: true
+    });
+  }
+
   // Floating notification text (e.g. +ammo, damage, CRIT)
   addFloatingText(text, x, y, color = '#ffffff') {
     this.floatingTexts.push({
@@ -2027,9 +2553,10 @@ class ParticleSystem {
           p.y += p.vy * dt * 40;
           p.angle += p.vRot * dt;
 
-          // Ground bounce collision
-          if (p.y >= CONFIG.SURFACE_Y - 2) {
-            p.y = CONFIG.SURFACE_Y - 2;
+          // Ground or watchtower deck bounce collision
+          const floorY = p.floorY !== undefined ? p.floorY : (CONFIG.SURFACE_Y - 2);
+          if (p.y >= floorY) {
+            p.y = floorY;
             if (p.bounces < p.maxBounces && Math.abs(p.vy) > 0.8) {
               p.vy = -Math.abs(p.vy) * (0.38 + Math.random() * 0.16);
               p.vx *= 0.62;
@@ -2687,6 +3214,53 @@ class ParticleSystem {
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
     }
+  }
+
+  // Supersonic gold tracer — .50 BMG bolt-action
+  spawnSniperTracer(x1, y1, x2, y2, headshot) {
+    // Tracer line segments (fading)
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.floor(len / 22);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / Math.max(steps, 1);
+      this.particles.push({
+        x: x1 + dx * t + (Math.random() - 0.5) * 1.4,
+        y: y1 + dy * t + (Math.random() - 0.5) * 1.4,
+        vx: dx * 0.015 + (Math.random() - 0.5) * 0.5,
+        vy: dy * 0.015 + (Math.random() - 0.5) * 0.5,
+        life: 0.22 - t * 0.12,
+        maxLife: 0.22,
+        size: headshot ? 2.8 : 1.8,
+        color: headshot ? '#FFD700' : '#FFC04A',
+        gravity: 0,
+        type: 'tracer'
+      });
+    }
+    // Muzzle flash at sniper origin
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 2.5 + 1;
+      this.particles.push({
+        x: x1, y: y1,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+        life: 0.08, maxLife: 0.08,
+        size: Math.random() * 3 + 1.5,
+        color: '#FFFBE0', gravity: 0, type: 'muzzle'
+      });
+    }
+    // Spent casing ejection (right-side eject)
+    this.spawnCasing(x1 + 4, y1, 1);
+    // Floating damage text
+    const label = headshot ? `HEADSHOT! -${Math.floor(Math.random()*140+310)}` : `-${Math.floor(Math.random()*120+180)}`;
+    const col = headshot ? '#FFD700' : '#FF6633';
+    this.addFloatingText(x2, y2 - 20, label, col);
+  }
+
+  // Floating kill/damage text
+  addFloatingText(x, y, text, color) {
+    if (!this.floatingTexts) this.floatingTexts = [];
+    this.floatingTexts.push({ x, y, text, color, life: 1.2, maxLife: 1.2 });
   }
 }
 
@@ -3755,6 +4329,7 @@ class Zombie {
     this.isDead = false;
     this.animTime = Math.random() * 10;
     this.dripTimer = Math.random();
+    this.targetRefugee = null;
   }
 
   takeDamage(amount) {
@@ -3844,6 +4419,28 @@ class Zombie {
             window.gameEngine.particles.spawnSmokePuff(this.x, CONFIG.SURFACE_Y, 7, 'rgba(150, 135, 120, 0.6)');
           }
         }
+      }
+    }
+
+    // If assigned to pursue a fleeing refugee on surface
+    if (this.targetRefugee) {
+      if (this.targetRefugee.isDead || this.targetRefugee.isRescued) {
+        this.targetRefugee = null;
+      } else {
+        const distToRefugee = Math.abs(this.x - this.targetRefugee.x);
+        if (distToRefugee <= 20) {
+          if (this.attackCooldown <= 0) {
+            this.attackCooldown = this.attackRate;
+            this.targetRefugee.takeDamage(this.damage);
+            if (window.soundSystem && window.soundSystem.playZombieShriek) {
+              window.soundSystem.playZombieShriek();
+            }
+          }
+        } else {
+          const dir = this.x < this.targetRefugee.x ? 1 : -1;
+          this.x += dir * (this.speed * 1.05) * dt;
+        }
+        return;
       }
     }
 
@@ -4494,6 +5091,7 @@ class WaveManager {
     this.hordeSpawnQueue = [];
     this.ambientSpawnTimer = 18; // Occasional straggler
     this.sirenPlayed = false;
+    this.refugeeDistressTriggered = false;
   }
 
   update(dt, zombiesList) {
@@ -4511,6 +5109,14 @@ class WaveManager {
       // Time to trigger horde!
       if (this.timer <= 0) {
         this.startHorde();
+      }
+
+      // Occasional mid-intermission refugee distress event
+      if (!this.refugeeDistressTriggered && this.timer <= 45 && this.currentWave >= 1) {
+        this.refugeeDistressTriggered = true;
+        if (window.gameEngine && window.gameEngine.triggerRefugeeEvent) {
+          window.gameEngine.triggerRefugeeEvent();
+        }
       }
 
       // Ambient wandering zombies (rare stragglers or small group)
@@ -4563,6 +5169,7 @@ class WaveManager {
     this.isHordeActive = true;
     this.currentWave++;
     this.sirenPlayed = false;
+    this.refugeeDistressTriggered = false;
     if (window.soundSystem) window.soundSystem.playSiren();
     window.gameEngine.addNotification(`🚨 WAVE ${this.currentWave} ATTACKING! ALL DEFENSES READY!`, "danger");
 
@@ -4626,6 +5233,15 @@ class WaveManager {
 
     engine.particles.addFloatingText(`+${bonusAmmo} BONUS AMMO!`, 640, 200, '#ffe57f');
     engine.particles.addFloatingText(`+${bonusMetal} BONUS METAL!`, 640, 180, '#9cdcfe');
+
+    // Trigger Horde Refugee Rescue distress event right after wave is repelled!
+    if (engine && engine.triggerRefugeeEvent) {
+      setTimeout(() => {
+        if (window.gameEngine && !window.gameEngine.isPaused) {
+          window.gameEngine.triggerRefugeeEvent();
+        }
+      }, 1200);
+    }
   }
 }
 
@@ -4689,6 +5305,27 @@ class Room {
   }
 
   update(dt, workers, hasPower) {
+    // Bio-Refinery passive emergency fuel generation (anaerobic biomass digestion occurs even with 0 workers)
+    if (this.id === 'bio_refinery') {
+      const passiveRate = (CONFIG.BIO_REFINERY_PASSIVE_RATE || 0.18) * (hasPower ? 1.0 : 0.65);
+      const fuelCap = CONFIG.RESOURCE_CAPS.fuel || 150;
+      window.gameEngine.resources.fuel = Math.min(fuelCap, window.gameEngine.resources.fuel + passiveRate * dt);
+    }
+
+    // Generator power grid output and fuel burn are centrally simulated in GameEngine.updatePowerGrid
+    if (this.id === 'generator') {
+      if (workers && workers.length > 0) {
+        for (const w of workers) {
+          if (w.isDead) continue;
+          if (w.addXP) {
+            const xpRate = CONFIG.SURVIVOR_XP_PER_SEC_WORKING * (w.specialty === this.id ? CONFIG.SURVIVOR_XP_SPECIALTY_MULT : 1.0);
+            w.addXP(xpRate * dt);
+          }
+        }
+      }
+      return;
+    }
+
     if (!workers || workers.length === 0 || !hasPower || !this.produces) return;
 
     // Production calculation & Tech modifiers
@@ -6261,14 +6898,18 @@ class Survivor {
     this.xpToNext = this.getXpNeeded(this.level);
 
     this.assignedRoom = data.assignedRoom || 'armory';
-    this.status = 'working'; // 'working', 'seeking_food', 'seeking_water', 'resting', 'delivering_ammo'
+    this.status = 'working'; // 'working', 'seeking_food', 'seeking_water', 'resting', 'seeking_medical', 'delivering_ammo', 'emergency_power', 'repairing_defenses'
 
     // Visual & kinematic position
     this.x = 640;
     this.y = 350;
     this.targetX = 640;
     this.targetY = 350;
-    this.speed = 52; // px/s
+
+    const nameLower = (this.name || '').toLowerCase();
+    const roleLower = (this.role || '').toLowerCase();
+    // Samantha (Logistics Porter) sprints 50% faster (78 px/s)
+    this.speed = data.speed || (nameLower.includes('samantha') || roleLower.includes('porter') ? 78 : 52);
     this.walkCycle = Math.random() * 10;
     this.isDead = false;
 
@@ -6276,8 +6917,14 @@ class Survivor {
     this.inElevator = false;
     this.carryingAmmo = false;
     this.ammoDeliveryTask = null; // Logistics runner state machine
-    this.needState = null;        // 'seeking_food', 'seeking_water', 'resting'
+    this.builderRepairTask = null; // Master builder autonomous repair state machine
+    this.needState = null;        // 'seeking_food', 'seeking_water', 'resting', 'seeking_medical'
     this.needTimer = 0;
+
+    // Autonomous action timers
+    this.sniperTimer = Math.random() * 2;
+    this.medicTriageTimer = 0;
+    this.demoCraftTimer = 0;
 
     // Speech / status bubble
     this.speechText = '';
@@ -6385,9 +7032,11 @@ class Survivor {
     const res = engine.resources;
     const elevator = engine.elevator;
 
-    // Elena (Engineer): Sparks emitting when crafting / repairing in workshop
     const nameLower = (this.name || '').toLowerCase();
-    const isEngineer = nameLower.includes('elena') || this.specialty === 'workshop' || this.assignedRoom === 'workshop';
+    const roleLower = (this.role || '').toLowerCase();
+
+    // Elena / Carlos / Engineer: Sparks emitting when crafting / repairing in workshop
+    const isEngineer = nameLower.includes('elena') || nameLower.includes('carlos') || this.specialty === 'workshop' || this.assignedRoom === 'workshop';
     if (isEngineer && this.status === 'working' && !this.inElevator) {
       this.craftSparkTimer = (this.craftSparkTimer || 0) + dt;
       if (this.craftSparkTimer >= 0.32) {
@@ -6430,17 +7079,132 @@ class Survivor {
       return;
     }
 
-    // 2. Ammo Delivery Task Execution (Highest priority autonomous job)
+    // 2. High-Priority Autonomous Ammo Delivery Task Execution
     if (this.ammoDeliveryTask) {
       this.updateAmmoDelivery(dt);
       this.performMovement(dt);
       return;
     }
 
-    // 3. Autonomous Needs Routing
+    // 3. Carlos: Autonomous Defense & Barricade Repair Task Execution
+    if (this.builderRepairTask) {
+      this.updateBuilderRepair(dt);
+      this.performMovement(dt);
+      return;
+    }
+
+    // 4. Maya: Autonomous Electrical Engineer Emergency Power Task
+    const isMaya = nameLower.includes('maya') || roleLower.includes('electrical') || this.specialty === 'generator';
+    if (isMaya && !this.inElevator && !this.needState) {
+      if (engine.resources.power < 30 && engine.resources.fuel > 0) {
+        if (this.status !== 'emergency_power') {
+          this.status = 'emergency_power';
+          this.say("⚡ Power critical! Rushing to generator!", 2.5);
+        }
+      }
+      if (this.status === 'emergency_power') {
+        const genRoom = engine.getRoom('generator');
+        if (genRoom) {
+          this.targetX = genRoom.x + 32;
+          this.targetY = elevator.getFloorWalkY(genRoom.floor);
+          if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 18) {
+            // Overclock generator
+            engine.resources.power = Math.min(CONFIG.RESOURCE_CAPS.power, engine.resources.power + 28 * dt);
+            this.craftSparkTimer = (this.craftSparkTimer || 0) + dt;
+            if (this.craftSparkTimer >= 0.25) {
+              this.craftSparkTimer = 0;
+              engine.particles.spawnSparks(this.x + 4, this.y - 12, 3, '#00f3ff');
+            }
+            this.addXP(CONFIG.SURVIVOR_XP_PER_SEC_WORKING * 1.5 * dt);
+            if (engine.resources.power >= 78 || engine.resources.fuel <= 0) {
+              this.status = 'working';
+              this.say("⚡ Power grid stabilized! Back to duty.", 2.5);
+              this.assignTo(this.assignedRoom);
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Carlos: Check Damaged Cabin Barricade & Turrets
+    const isCarlos = nameLower.includes('carlos') || roleLower.includes('builder') || roleLower.includes('architect');
+    if (isCarlos && !this.builderRepairTask && this.status !== 'resting' && !this.inElevator && !this.needState) {
+      const houseDamaged = engine.houseHp < engine.houseMaxHp - 50;
+      const leftDamaged = engine.leftTurret.health < engine.leftTurret.maxHealth - 25;
+      const rightDamaged = engine.rightTurret.health < engine.rightTurret.maxHealth - 25;
+      if ((houseDamaged || leftDamaged || rightDamaged) && engine.resources.metal >= 10) {
+        let repairTarget = 'house';
+        if (leftDamaged && (!houseDamaged || engine.leftTurret.health < engine.houseHp * 0.4)) repairTarget = 'left';
+        else if (rightDamaged && (!houseDamaged || engine.rightTurret.health < engine.houseHp * 0.4)) repairTarget = 'right';
+        this.builderRepairTask = { target: repairTarget, phase: 'to_elevator' };
+        this.status = 'repairing_defenses';
+        this.say("🔧 Defenses damaged! Mobilizing repairs!", 2.5);
+      }
+    }
+
+    // 6. Jackson: Watchtower Sniper Precision Overwatch
+    const isJackson = nameLower.includes('jackson') || roleLower.includes('sniper') || roleLower.includes('marksman');
+    if (isJackson && !this.inElevator && this.status !== 'resting') {
+      this.sniperTimer = (this.sniperTimer || 0) + dt;
+      if (this.sniperTimer >= 3.2) {
+        this.sniperTimer = 0;
+        const liveZombies = engine.zombies.filter(z => !z.isDead);
+        if (liveZombies.length > 0) {
+          let targetZ = null;
+          if (engine.refugees && engine.refugees.length > 0) {
+            const activeRef = engine.refugees.find(r => !r.isDead && !r.isRescued);
+            if (activeRef) {
+              targetZ = liveZombies.find(z => Math.abs(z.x - activeRef.x) < 140);
+            }
+          }
+          if (!targetZ) {
+            targetZ = liveZombies.find(z => z.typeKey === 'brute') || liveZombies.find(z => z.typeKey === 'spitter') || liveZombies[0];
+          }
+          if (targetZ) {
+            targetZ.takeDamage(125);
+            engine.particles.spawnSparks(targetZ.x, targetZ.y - targetZ.size * 0.6, 16, '#ff4757');
+            engine.particles.addFloatingText("🎯 SNIPER HEADSHOT! (-125)", targetZ.x - 30, targetZ.y - 45, '#ffd700');
+            if (window.soundSystem) {
+              if (typeof window.soundSystem.playTurretFire === 'function') window.soundSystem.playTurretFire('left');
+              else if (typeof window.soundSystem.playGunshot === 'function') window.soundSystem.playGunshot('heavy');
+            }
+            this.addXP(CONFIG.SURVIVOR_XP_AMMO_RUN * 0.4);
+            if (Math.random() < 0.3) this.say("Target eliminated. Down in one.", 2);
+          }
+        }
+      }
+    }
+
+    // 7. Lucas: Combat Medic Triage & Medkit Production
+    const isLucas = nameLower.includes('lucas') || roleLower.includes('combat medic');
+    if (isLucas && this.assignedRoom === 'clinic' && !this.isDead) {
+      this.medicTriageTimer = (this.medicTriageTimer || 0) + dt;
+      if (this.medicTriageTimer >= 12.0) {
+        this.medicTriageTimer = 0;
+        if (engine.resources.meds < CONFIG.RESOURCE_CAPS.meds) {
+          engine.resources.meds = Math.min(CONFIG.RESOURCE_CAPS.meds, engine.resources.meds + 1);
+          engine.particles.addFloatingText("+1 FIRST AID KIT!", this.x - 20, this.y - 30, '#00d2d3');
+          this.addXP(20);
+        }
+      }
+    }
+
+    // 8. Boris: Heavy Demolitionist HE Munitions Crafting
+    const isBoris = nameLower.includes('boris') || roleLower.includes('demolition');
+    if (isBoris && (this.assignedRoom === 'armory' || this.assignedRoom === 'gunpowder_lab') && !this.isDead) {
+      this.demoCraftTimer = (this.demoCraftTimer || 0) + dt;
+      if (this.demoCraftTimer >= 22.0) {
+        this.demoCraftTimer = 0;
+        engine.particles.addFloatingText("💣 HE MUNITIONS READY!", this.x - 20, this.y - 30, '#ff9f43');
+        if (Math.random() < 0.4) this.say("Ordnance packed and ready to boom!", 2.5);
+        this.addXP(30);
+      }
+    }
+
+    // 9. Autonomous Needs Routing
     this.updateAutonomousNeeds(dt);
 
-    // 4. Movement towards target
+    // 10. Movement towards target
     this.performMovement(dt);
   }
 
@@ -6459,11 +7223,9 @@ class Survivor {
     const armoryWalkY = elevator.getFloorWalkY(1);
 
     if (task.phase === 'to_armory') {
-      // Walk to armory crafting bench
       this.targetX = armory.x + armory.width / 2;
       this.targetY = armoryWalkY;
 
-      // When arrived at armory
       if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 12) {
         if (engine.resources.ammo < 1) {
           this.say("No ammo in armory stock to deliver!", 2);
@@ -6475,14 +7237,13 @@ class Survivor {
         this.say("Ammo crate ready! Calling elevator!", 2);
       }
     } else if (task.phase === 'call_elevator_armory') {
-      // Walk to elevator shaft on Floor 1
       this.targetX = CONFIG.ELEVATOR_X - 16;
       this.targetY = armoryWalkY;
 
       if (Math.abs(this.x - this.targetX) < 10) {
         if (elevator.isAtFloor(1)) {
           elevator.board(this);
-          elevator.moveToFloor(0); // Ride to surface
+          elevator.moveToFloor(0);
           task.phase = 'riding_to_surface';
           this.say("Taking lift to surface...", 2);
         } else {
@@ -6490,7 +7251,6 @@ class Survivor {
         }
       }
     } else if (task.phase === 'riding_to_surface') {
-      // In elevator car moving up
       if (elevator.isAtFloor(0)) {
         elevator.exit(this);
         this.x = CONFIG.ELEVATOR_X;
@@ -6499,13 +7259,11 @@ class Survivor {
         this.say("Surface breached! Running to turret!", 2);
       }
     } else if (task.phase === 'running_to_turret') {
-      // Walk across surface to turret
       const turretStopX = turret.side === 'left' ? turret.x + 24 : turret.x - 24;
       this.targetX = turretStopX;
       this.targetY = CONFIG.SURFACE_Y;
 
       if (Math.abs(this.x - turretStopX) < 14) {
-        // Restock turret!
         const needed = turret.stats.maxAmmo - turret.ammo;
         const available = Math.floor(engine.resources.ammo);
         const deliverAmount = Math.min(needed, Math.min(CONFIG.AMMO_CRATE_DELIVERY_AMOUNT, available));
@@ -6525,7 +7283,6 @@ class Survivor {
         this.say("Restocked! Returning to bunker!", 2);
       }
     } else if (task.phase === 'returning_to_cabin') {
-      // Run back into surface cabin
       this.targetX = CONFIG.ELEVATOR_X;
       this.targetY = CONFIG.SURFACE_Y;
 
@@ -6543,7 +7300,6 @@ class Survivor {
         }
       }
     } else if (task.phase === 'riding_to_bunker') {
-      // In elevator car moving down
       if (elevator.isAtFloor(task.destFloor)) {
         elevator.exit(this);
         this.x = CONFIG.ELEVATOR_X;
@@ -6556,6 +7312,94 @@ class Survivor {
     }
   }
 
+  // Carlos: Autonomous Builder Defense Repairs
+  updateBuilderRepair(dt) {
+    const engine = window.gameEngine;
+    const elevator = engine.elevator;
+    const task = this.builderRepairTask;
+    if (!task) return;
+
+    if (task.phase === 'to_elevator') {
+      const room = engine.getRoom(this.assignedRoom);
+      const floor = room ? room.floor : 3;
+      const walkY = elevator.getFloorWalkY(floor);
+      this.targetX = CONFIG.ELEVATOR_X - 16;
+      this.targetY = walkY;
+
+      if (Math.abs(this.x - this.targetX) < 12) {
+        if (elevator.isAtFloor(floor)) {
+          elevator.board(this);
+          elevator.moveToFloor(0);
+          task.phase = 'riding_to_surface';
+          this.say("Taking lift to surface for emergency repairs!", 2);
+        } else {
+          elevator.moveToFloor(floor);
+        }
+      }
+    } else if (task.phase === 'riding_to_surface') {
+      if (elevator.isAtFloor(0)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = CONFIG.SURFACE_Y;
+        task.phase = 'running_to_defense';
+      }
+    } else if (task.phase === 'running_to_defense') {
+      let destX = 640;
+      if (task.target === 'left') destX = engine.leftTurret.x;
+      else if (task.target === 'right') destX = engine.rightTurret.x;
+      this.targetX = destX;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - destX) < 18) {
+        if (engine.resources.metal >= 10) {
+          engine.resources.metal -= 10;
+          if (task.target === 'house') {
+            engine.houseHp = Math.min(engine.houseMaxHp, engine.houseHp + 70);
+            engine.particles.addFloatingText("+70 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          } else if (task.target === 'left') {
+            engine.leftTurret.health = Math.min(engine.leftTurret.maxHealth, engine.leftTurret.health + 45);
+            engine.particles.addFloatingText("+45 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          } else {
+            engine.rightTurret.health = Math.min(engine.rightTurret.maxHealth, engine.rightTurret.health + 45);
+            engine.particles.addFloatingText("+45 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          }
+          engine.particles.spawnSparks(destX, CONFIG.SURFACE_Y - 15, 20, '#ffd700');
+          if (window.soundSystem) window.soundSystem.playBeep(true);
+          this.addXP(CONFIG.SURVIVOR_XP_AMMO_RUN);
+        }
+        this.say("Repairs complete! Fortifications holding!", 2);
+        task.phase = 'returning_to_cabin';
+      }
+    } else if (task.phase === 'returning_to_cabin') {
+      this.targetX = CONFIG.ELEVATOR_X;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - CONFIG.ELEVATOR_X) < 12) {
+        if (elevator.isAtFloor(0)) {
+          elevator.board(this);
+          const room = engine.getRoom(this.assignedRoom);
+          const destFloor = room ? room.floor : 3;
+          elevator.moveToFloor(destFloor);
+          task.destFloor = destFloor;
+          task.phase = 'riding_to_workshop';
+          this.say("Returning to bunker workshop...", 2);
+        } else {
+          elevator.moveToFloor(0);
+        }
+      }
+    } else if (task.phase === 'riding_to_workshop') {
+      if (elevator.isAtFloor(task.destFloor || 3)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = elevator.getFloorWalkY(task.destFloor || 3);
+        this.builderRepairTask = null;
+        this.status = 'working';
+        this.assignTo(this.assignedRoom);
+        this.say("Safe inside! Back to construction bench.", 2);
+      }
+    }
+  }
+
   updateAutonomousNeeds(dt) {
     const engine = window.gameEngine;
     const res = engine.resources;
@@ -6563,7 +7407,12 @@ class Survivor {
 
     // Trigger needs if thresholds crossed
     if (!this.needState) {
-      if (this.thirst < CONFIG.THIRST_THRESHOLD && res.water >= 1) {
+      if (this.hp < 65 && res.meds >= 1) {
+        this.needState = 'seeking_medical';
+        this.status = 'seeking_medical';
+        this.needTimer = 0;
+        this.say("Wounded... heading to medical clinic.", 2);
+      } else if (this.thirst < CONFIG.THIRST_THRESHOLD && res.water >= 1) {
         this.needState = 'seeking_water';
         this.status = 'seeking_water';
         this.needTimer = 0;
@@ -6582,7 +7431,30 @@ class Survivor {
     }
 
     // Process active need state
-    if (this.needState === 'seeking_water') {
+    if (this.needState === 'seeking_medical') {
+      const clinic = engine.getRoom('clinic');
+      if (clinic) {
+        const destY = elevator.getFloorWalkY(clinic.floor);
+        this.targetX = clinic.x + 35;
+        this.targetY = destY;
+
+        if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 16) {
+          this.needTimer += dt;
+          this.hp = Math.min(this.maxHp, this.hp + dt * 25.0);
+          if (engine.particles && Math.random() < 0.25) {
+            engine.particles.spawnSparks(this.x, this.y - 15, 3, '#00d2d3');
+          }
+          if (this.hp >= this.maxHp) {
+            this.hp = this.maxHp;
+            this.needState = null;
+            this.status = 'working';
+            this.needTimer = 0;
+            this.say("Fully patched up and ready!", 2);
+            this.assignTo(this.assignedRoom);
+          }
+        }
+      }
+    } else if (this.needState === 'seeking_water') {
       const waterRoom = engine.getRoom('water_filter');
       if (waterRoom) {
         const destY = elevator.getFloorWalkY(waterRoom.floor);
@@ -6623,7 +7495,6 @@ class Survivor {
         }
       }
     } else if (this.needState === 'resting') {
-      // Find quarters
       const q = engine.getRoom('quarters_1') || engine.getRoom('quarters_2');
       if (q) {
         const destY = elevator.getFloorWalkY(q.floor);
@@ -6631,7 +7502,6 @@ class Survivor {
         this.targetY = destY;
 
         if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 16) {
-          // Resting restores fatigue rapidly
           if (this.fatigue <= CONFIG.FATIGUE_WAKE_THRESHOLD) {
             this.needState = null;
             this.status = 'working';
@@ -6670,7 +7540,6 @@ class Survivor {
     } else {
       this.x += (dx / dist) * step;
       this.y += (dy / dist) * step;
-      // Strained, heavier stride when carrying heavy munitions crate
       this.walkCycle += dt * (this.carryingAmmo ? 6.2 : 8.5);
       this.isMoving = true;
       if (dx < -1.5) this.facing = -1;
@@ -6687,17 +7556,26 @@ class Survivor {
     const spec = this.specialty || '';
 
     const isMarcus = nameL.includes('marcus') || roleL.includes('gunsmith') || spec === 'armory';
-    const isElena = nameL.includes('elena') || roleL.includes('engineer') || roleL.includes('mechanic') || spec === 'workshop';
-    const isSarah = nameL.includes('sarah') || roleL.includes('physician') || roleL.includes('doctor') || spec === 'clinic';
+    const isElena = (nameL.includes('elena') || roleL.includes('engineer') || roleL.includes('mechanic')) && !nameL.includes('maya') && !roleL.includes('electrical');
+    const isSarah = nameL.includes('sarah') || roleL.includes('physician') || roleL.includes('doctor');
     const isToby = nameL.includes('toby') || roleL.includes('botanist') || roleL.includes('agri') || spec === 'hydroponics';
-    const isAiden = nameL.includes('aiden') || roleL.includes('guard') || roleL.includes('security') || spec === 'security';
+    const isAiden = (nameL.includes('aiden') || roleL.includes('guard') || roleL.includes('security')) && !nameL.includes('jackson') && !roleL.includes('sniper');
+
+    const isJackson = nameL.includes('jackson') || roleL.includes('sniper') || roleL.includes('marksman');
+    const isMaya = nameL.includes('maya') || roleL.includes('electrical');
+    const isCarlos = nameL.includes('carlos') || roleL.includes('builder') || roleL.includes('architect');
+    const isSamantha = nameL.includes('samantha') || roleL.includes('porter') || roleL.includes('courier');
+    const isLucas = nameL.includes('lucas') || roleL.includes('combat medic');
+    const isBoris = nameL.includes('boris') || roleL.includes('demolition');
+
+    const arc = { isMarcus, isElena, isSarah, isToby, isAiden, isJackson, isMaya, isCarlos, isSamantha, isLucas, isBoris };
 
     // Resting sleep posture: when resting at living quarters
     const isResting = (this.status === 'resting' || this.needState === 'resting') &&
       ((this.assignedRoom && this.assignedRoom.startsWith('quarters')) || (!this.isMoving && Math.hypot(this.x - this.targetX, this.y - this.targetY) < 18));
 
     if (isResting) {
-      this.drawSleeping(ctx, isMarcus, isElena, isSarah, isToby, isAiden);
+      this.drawSleeping(ctx, arc);
       return;
     }
 
@@ -6707,37 +7585,39 @@ class Survivor {
     const movingLeft = this.facing === -1 || (this.targetX < this.x - 2);
     if (movingLeft) ctx.scale(-1, 1);
 
-    // Dynamic animation parameters: Idle breathing, walk bounce, leg and arm articulation
     const breath = !this.isMoving ? Math.sin(this.idleTime * 2.5) * 0.85 : 0;
     const bob = this.isMoving ? Math.abs(Math.sin(this.walkCycle)) * 2.2 : breath;
     const legSwing = this.isMoving ? Math.cos(this.walkCycle) * 4.5 : 0;
     const armSwing = this.isMoving ? Math.sin(this.walkCycle) * 5.0 : Math.sin(this.idleTime * 1.5) * 1.2;
 
-    // Hauling heavy ammo crate: realistic strained forward lean under weight
     if (this.carryingAmmo) {
-      ctx.rotate(0.09); // Forward torso rake
+      ctx.rotate(0.09);
     }
 
     // 1. LEGS & ARTICULATED BOOTS
-    this.drawSurvivorLegs(ctx, legSwing, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorLegs(ctx, legSwing, bob, arc);
 
     // 2. TORSO & ROLE-SPECIFIC COSTUMES
-    this.drawSurvivorTorso(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorTorso(ctx, bob, arc);
 
     // 3. HEAD, HAIR, CAPS & EYE ACCENTS
-    this.drawSurvivorHead(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorHead(ctx, bob, arc);
 
-    // 4. ARMS, HELD TOOLS & TASK ANIMATIONS (Ammo crate, Eating, Drinking, Crafting)
-    this.drawSurvivorArmsAndItems(ctx, bob, armSwing, isMarcus, isElena, isSarah, isToby, isAiden);
+    // 4. ARMS, HELD TOOLS & TASK ANIMATIONS
+    this.drawSurvivorArmsAndItems(ctx, bob, armSwing, arc);
 
-    // 5. STATUS OVERLAYS (Health pip, Name tag, Speech bubble)
+    // 5. STATUS OVERLAYS
     this.drawSurvivorOverlays(ctx, bob, movingLeft);
 
     ctx.restore();
   }
 
   // --- RESTING SLEEP POSTURE WITH FLOATING 'Zzz' ICONS ---
-  drawSleeping(ctx, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSleeping(ctx, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[1], isElena: arguments[2], isSarah: arguments[3], isToby: arguments[4], isAiden: arguments[5] };
+    }
+
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -6745,10 +7625,10 @@ class Survivor {
 
     // Bunk cot frame & mattress
     ctx.fillStyle = '#2c3e50';
-    ctx.fillRect(-20, -6, 40, 5); // Bed base
+    ctx.fillRect(-20, -6, 40, 5);
     ctx.fillStyle = '#1e272e';
-    ctx.fillRect(-20, -1, 4, 3); // Left post
-    ctx.fillRect(16, -1, 4, 3);  // Right post
+    ctx.fillRect(-20, -1, 4, 3);
+    ctx.fillRect(16, -1, 4, 3);
 
     // Soft mattress
     ctx.fillStyle = '#cbd5e1';
@@ -6760,13 +7640,13 @@ class Survivor {
     ctx.ellipse(-13, -11, 5, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head resting on pillow with peaceful closed eyes
-    ctx.fillStyle = isMarcus || isToby ? '#f5cd79' : isSarah ? '#ffeaa7' : '#ffdfba';
+    // Head resting on pillow
+    ctx.fillStyle = arc.isMarcus || arc.isToby ? '#f5cd79' : arc.isSarah ? '#ffeaa7' : '#ffdfba';
     ctx.beginPath();
     ctx.arc(-11, -12 + sleepBreath * 0.3, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Closed eyes (peaceful horizontal sleep arcs)
+    // Closed eyes
     ctx.strokeStyle = '#2d3748';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -6774,38 +7654,64 @@ class Survivor {
     ctx.lineTo(-9.5, -12 + sleepBreath * 0.3);
     ctx.stroke();
 
-    // Resting headgear / accessory on bedpost or nightstand
-    if (isMarcus) {
-      // Marcus goggles on cot frame
+    // Resting headgear / accessory on bedpost
+    if (arc.isMarcus) {
       ctx.strokeStyle = '#d4af37';
       ctx.lineWidth = 1;
       ctx.strokeRect(10, -11, 6, 3);
-    } else if (isElena) {
-      // Elena yellow hardhat resting by cot
+    } else if (arc.isElena) {
       ctx.fillStyle = '#f39c12';
       ctx.beginPath();
       ctx.arc(12, -10, 4, Math.PI, 0);
       ctx.fill();
-    } else if (isToby) {
-      // Toby straw hat by cot edge
+    } else if (arc.isToby) {
       ctx.fillStyle = '#eccc68';
       ctx.beginPath();
       ctx.ellipse(12, -9, 6, 2.5, 0, 0, Math.PI * 2);
       ctx.fill();
-    } else if (isAiden) {
-      // Aiden green beret folded on bedpost
+    } else if (arc.isAiden) {
       ctx.fillStyle = '#1b4332';
       ctx.beginPath();
       ctx.ellipse(12, -10, 4, 2, 0, 0, Math.PI * 2);
       ctx.fill();
+    } else if (arc.isJackson) {
+      ctx.fillStyle = '#2d4a22';
+      ctx.beginPath();
+      ctx.ellipse(12, -10, 4.5, 2.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1e272e';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(15, -4); ctx.lineTo(19, -15);
+      ctx.stroke();
+    } else if (arc.isMaya) {
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(10, -11, 6, 3);
+    } else if (arc.isCarlos) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(12, -10, 4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#2980b9';
+      ctx.fillRect(14, -8, 5, 2);
+    } else if (arc.isSamantha) {
+      ctx.fillStyle = '#ff7675';
+      ctx.fillRect(11, -6, 5, 2.5);
+    } else if (arc.isLucas) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(10, -11, 5, 5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(11.5, -9.5, 2, 2);
+    } else if (arc.isBoris) {
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(10, -11, 6, 3.5);
     }
 
-    // Cozy bunker quilted blanket covering body up to chest
+    // Cozy bunker quilted blanket
     ctx.fillStyle = '#334155';
     ctx.fillRect(-6, -12 + sleepBreath * 0.7, 24, 7);
     ctx.fillStyle = '#475569';
-    ctx.fillRect(-7, -13 + sleepBreath * 0.7, 25, 2); // Folded sheet top
-    // Quilt stitch accents
+    ctx.fillRect(-7, -13 + sleepBreath * 0.7, 25, 2);
     ctx.strokeStyle = '#64748b';
     ctx.lineWidth = 0.8;
     ctx.beginPath();
@@ -6813,7 +7719,7 @@ class Survivor {
     ctx.moveTo(6, -11 + sleepBreath * 0.7); ctx.lineTo(14, -6);
     ctx.stroke();
 
-    // Floating animated 'Zzz' icons ascending into the air
+    // Floating animated 'Zzz' icons
     for (let i = 0; i < 3; i++) {
       const t = ((this.idleTime * 0.65 + i * 0.33) % 1.0);
       const zY = -16 - t * 24;
@@ -6831,7 +7737,7 @@ class Survivor {
       ctx.restore();
     }
 
-    // Health pip and name tag while resting
+    // Health pip and name tag
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : '#e74c3c';
     ctx.fillRect(-8, -20, 16 * hpRatio, 2);
@@ -6842,7 +7748,6 @@ class Survivor {
     const shortName = this.name.split(' ')[0];
     ctx.fillText(`${shortName} (Sleeping)`, 0, -23);
 
-    // Speech bubble if speaking
     if (this.speechText) {
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
@@ -6861,28 +7766,50 @@ class Survivor {
   }
 
   // --- 1. LEGS & ARTICULATED BOOTS ---
-  drawSurvivorLegs(ctx, legSwing, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorLegs(ctx, legSwing, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[3], isElena: arguments[4], isSarah: arguments[5], isToby: arguments[6], isAiden: arguments[7] };
+    }
+
     let pantsColor = '#2980b9';
     let bootColor = '#1e272e';
 
-    if (isMarcus) {
-      pantsColor = '#243342'; // Sturdy gunsmith denim
-      bootColor = '#3a2618';  // Steel-toed dark brown work boots
-    } else if (isElena) {
-      pantsColor = '#ff5722'; // High-vis orange jumpsuit legs
-      bootColor = '#1a1a1a';  // Heat-resistant black boots
-    } else if (isSarah) {
-      pantsColor = '#16a085'; // Teal surgical scrub trousers
-      bootColor = '#f8fafc';  // Clean white medical clinical shoes
-    } else if (isToby) {
-      pantsColor = '#4a3728'; // Earth-brown gardening dungarees
-      bootColor = '#2f1f14';  // Mud-stained field boots
-    } else if (isAiden) {
-      pantsColor = '#2f3640'; // Tactical charcoal BDU cargo pants
-      bootColor = '#111111';  // High-top tactical SWAT assault boots
+    if (arc.isMarcus) {
+      pantsColor = '#243342';
+      bootColor = '#3a2618';
+    } else if (arc.isElena) {
+      pantsColor = '#ff5722';
+      bootColor = '#1a1a1a';
+    } else if (arc.isSarah) {
+      pantsColor = '#16a085';
+      bootColor = '#f8fafc';
+    } else if (arc.isToby) {
+      pantsColor = '#4a3728';
+      bootColor = '#2f1f14';
+    } else if (arc.isAiden) {
+      pantsColor = '#2f3640';
+      bootColor = '#111111';
+    } else if (arc.isJackson) {
+      pantsColor = '#2d4a22';
+      bootColor = '#1b261b';
+    } else if (arc.isMaya) {
+      pantsColor = '#2c3e50';
+      bootColor = '#111111';
+    } else if (arc.isCarlos) {
+      pantsColor = '#1f3a52';
+      bootColor = '#4a2f18';
+    } else if (arc.isSamantha) {
+      pantsColor = '#0f172a';
+      bootColor = '#ff7675';
+    } else if (arc.isLucas) {
+      pantsColor = '#4b6584';
+      bootColor = '#f8fafc';
+    } else if (arc.isBoris) {
+      pantsColor = '#1e272e';
+      bootColor = '#2f3640';
     }
 
-    // Back leg (stepping with -legSwing)
+    // Back leg
     ctx.strokeStyle = pantsColor;
     ctx.lineWidth = 2.6;
     ctx.beginPath();
@@ -6895,7 +7822,7 @@ class Survivor {
     ctx.fillStyle = bootColor;
     ctx.fillRect(1 - legSwing, -2, 4.5, 2.5);
 
-    // Front leg (stepping with +legSwing)
+    // Front leg
     ctx.strokeStyle = pantsColor;
     ctx.lineWidth = 2.8;
     ctx.beginPath();
@@ -6908,31 +7835,31 @@ class Survivor {
     ctx.fillStyle = bootColor;
     ctx.fillRect(-5 + legSwing, -2, 5, 2.5);
 
-    // Elena: reflective silver hazard band on pants cuffs
-    if (isElena) {
+    if (arc.isElena) {
       ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(-4.5 + legSwing, -4, 4, 1.2);
     }
   }
 
   // --- 2. TORSO & ROLE-SPECIFIC COSTUMES ---
-  drawSurvivorTorso(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorTorso(ctx, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[2], isElena: arguments[3], isSarah: arguments[4], isToby: arguments[5], isAiden: arguments[6] };
+    }
+
     const torsoY = -17 + bob;
     const torsoW = 9;
     const torsoH = 10.5;
 
-    if (isMarcus) {
-      // Marcus (Gunsmith): Grey work shirt base with heavy leather protective apron
-      ctx.fillStyle = '#47535e'; // Grey canvas shirt
+    if (arc.isMarcus) {
+      ctx.fillStyle = '#47535e';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Heavy distressed leather apron
       ctx.fillStyle = '#8b4513';
       ctx.fillRect(-torsoW / 2 + 0.5, torsoY + 1.5, torsoW - 1, torsoH - 1.5);
       ctx.fillStyle = '#6e340d';
-      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, torsoW - 2, 4); // Front pocket
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, torsoW - 2, 4);
 
-      // Cross-shoulder leather harness straps with brass rivet studs
       ctx.strokeStyle = '#5a2507';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -6940,45 +7867,37 @@ class Survivor {
       ctx.moveTo(torsoW / 2 - 1, torsoY); ctx.lineTo(1, torsoY + 4);
       ctx.stroke();
 
-      // Brass rivet studs
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-2, torsoY + 1, 1.2, 1.2);
       ctx.fillRect(1, torsoY + 1, 1.2, 1.2);
 
-      // Dark brown tool belt with brass buckle
       ctx.fillStyle = '#3a1d0d';
       ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2.5, torsoW, 2);
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-1, torsoY + torsoH - 2.5, 2, 2);
-    } else if (isElena) {
-      // Elena (Engineer): Fluorescent high-vis jumpsuit with dual reflective 3M stripes
-      ctx.fillStyle = '#ff5722'; // High-vis neon orange
+    } else if (arc.isElena) {
+      ctx.fillStyle = '#ff5722';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Dual reflective silver stripes with white glint
       ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(-torsoW / 2, torsoY + 2.5, torsoW, 1.8);
       ctx.fillRect(-torsoW / 2, torsoY + 6.5, torsoW, 1.8);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(-1, torsoY + 2.5, 2, 1.8);
 
-      // Utility belt with tool loop
       ctx.fillStyle = '#2d3436';
       ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2, torsoW, 2);
-    } else if (isSarah) {
-      // Doc Sarah (Physician): Teal surgical scrubs beneath open white lab coat
-      ctx.fillStyle = '#1abc9c'; // Teal scrubs
+    } else if (arc.isSarah) {
+      ctx.fillStyle = '#1abc9c';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Tailored white doctor's lab coat with lapels
       ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 3, torsoH + 1.5); // Left coat panel
-      ctx.fillRect(torsoW / 2 - 2.5, torsoY, 3, torsoH + 1.5);  // Right coat panel
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 3, torsoH + 1.5);
+      ctx.fillRect(torsoW / 2 - 2.5, torsoY, 3, torsoH + 1.5);
       ctx.fillStyle = '#e2e8f0';
-      ctx.fillRect(-torsoW / 2 + 1, torsoY + 3.5, 2, 3); // Breast pocket with pen clip
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 3.5, 2, 3);
 
-      // Stethoscope draped around neck with silver circular chestpiece
-      ctx.strokeStyle = '#0f172a'; // Black rubber binaural tubing
+      ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(-3, torsoY);
@@ -6987,60 +7906,49 @@ class Survivor {
       ctx.lineTo(3, torsoY);
       ctx.stroke();
 
-      // Silver acoustic bell disc
       ctx.fillStyle = '#cbd5e1';
       ctx.beginPath();
       ctx.arc(0.5, torsoY + 4.8, 1.4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Medical cross satchel slung on hip
-      ctx.fillStyle = '#7f1d1d'; // Crimson leather pouch
+      ctx.fillStyle = '#7f1d1d';
       ctx.fillRect(torsoW / 2 - 2, torsoY + torsoH - 4, 4.5, 4.5);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(torsoW / 2 - 0.5, torsoY + torsoH - 3.2, 1.5, 3);
       ctx.fillRect(torsoW / 2 - 1.2, torsoY + torsoH - 2.4, 3, 1.5);
-    } else if (isToby) {
-      // Toby (Botanist): Buffalo plaid checkered flannel shirt & dungarees
-      ctx.fillStyle = '#c0392b'; // Crimson flannel base
+    } else if (arc.isToby) {
+      ctx.fillStyle = '#c0392b';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Plaid criss-cross black check pattern
       ctx.fillStyle = '#2c0b0e';
       ctx.fillRect(-torsoW / 2, torsoY + 2.5, torsoW, 1.5);
       ctx.fillRect(-torsoW / 2, torsoY + 6.5, torsoW, 1.5);
       ctx.fillRect(-1.5, torsoY, 1.5, torsoH);
       ctx.fillRect(2, torsoY, 1.5, torsoH);
 
-      // Faded denim dungarees bib with brass buttons
       ctx.fillStyle = '#2980b9';
       ctx.fillRect(-torsoW / 2 + 1, torsoY + 5.5, torsoW - 2, torsoH - 5.5);
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-2.5, torsoY + 6, 1.2, 1.2);
       ctx.fillRect(1.5, torsoY + 6, 1.2, 1.2);
 
-      // Fresh green herb sprout in bib pocket!
       ctx.fillStyle = '#2ecc71';
       ctx.beginPath();
       ctx.arc(1.5, torsoY + 4.5, 1.5, 0, Math.PI * 2);
       ctx.fill();
-    } else if (isAiden) {
-      // Aiden (Veteran Guard): Charcoal fatigues with heavy tactical Kevlar combat vest
-      ctx.fillStyle = '#353b48'; // Combat uniform base
+    } else if (arc.isAiden) {
+      ctx.fillStyle = '#353b48';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Tactical MOLLE Kevlar vest
       ctx.fillStyle = '#1e272e';
       ctx.fillRect(-torsoW / 2 - 0.5, torsoY + 0.5, torsoW + 1, torsoH - 1.5);
 
-      // Tactical armor plate seam & magazine pouches
       ctx.fillStyle = '#2f3640';
       ctx.fillRect(-torsoW / 2 + 1, torsoY + 4.5, 3.2, 3.5);
       ctx.fillRect(0.5, torsoY + 4.5, 3.2, 3.5);
 
-      // Shoulder comms radio with mini antenna & blinking green LED
-      ctx.fillStyle = '#18191a'; // Radio body on shoulder
+      ctx.fillStyle = '#18191a';
       ctx.fillRect(-torsoW / 2 - 1, torsoY - 2, 2.5, 4);
-      // Mini whip antenna
       ctx.strokeStyle = '#2f3640';
       ctx.lineWidth = 0.8;
       ctx.beginPath();
@@ -7048,24 +7956,124 @@ class Survivor {
       ctx.lineTo(-torsoW / 2 + 0.2, torsoY - 6);
       ctx.stroke();
 
-      // Blinking green comms LED indicator
       const ledOn = Math.floor(this.idleTime * 2.8) % 2 === 0;
-      if (ledOn) {
-        ctx.fillStyle = '#00ff66';
-        ctx.shadowColor = '#00ff66';
-        ctx.shadowBlur = 5;
-        ctx.beginPath();
-        ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.fillStyle = '#0e4418';
-        ctx.beginPath();
-        ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 0.9, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.fillStyle = ledOn ? '#00ff66' : '#0e4418';
+      ctx.beginPath();
+      ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 1.0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (arc.isJackson) {
+      // Jackson (Master Sniper): Camo ghillie mantle & sniper chest rig
+      ctx.fillStyle = '#1e2f18';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#3b5e2b';
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2 - 1, torsoY);
+      ctx.lineTo(torsoW / 2 + 1, torsoY);
+      ctx.lineTo(torsoW / 2, torsoY + 4.5);
+      ctx.lineTo(-torsoW / 2, torsoY + 4.5);
+      ctx.fill();
+
+      ctx.fillStyle = '#243b1c';
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, 3.2, 3.5);
+      ctx.fillRect(0.5, torsoY + 5, 3.2, 3.5);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(-1, torsoY + 1.5, 2, 2);
+    } else if (arc.isMaya) {
+      // Maya (Electrical Engineer): High-voltage electrician suit with lightning badge
+      ctx.fillStyle = '#1a252f';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(-torsoW / 2, torsoY + 2, torsoW, 1.2);
+      ctx.fillRect(-torsoW / 2, torsoY + 7, torsoW, 1.2);
+
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath();
+      ctx.moveTo(1, torsoY + 3.5);
+      ctx.lineTo(-1.5, torsoY + 6);
+      ctx.lineTo(0.5, torsoY + 6);
+      ctx.lineTo(-1, torsoY + 8.5);
+      ctx.lineTo(2, torsoY + 5.5);
+      ctx.lineTo(0, torsoY + 5.5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (arc.isCarlos) {
+      // Carlos (Master Builder): Canvas vest & blueprint roll on back
+      ctx.fillStyle = '#b33927';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#d35400';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 2.5, torsoH);
+      ctx.fillRect(torsoW / 2 - 2, torsoY, 2.5, torsoH);
+
+      ctx.fillStyle = '#5c3a21';
+      ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2.5, torsoW, 2.5);
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(-torsoW / 2 - 1.5, torsoY + torsoH - 1, 2, 3);
+
+      ctx.fillStyle = '#ecf0f1';
+      ctx.save();
+      ctx.rotate(-0.35);
+      ctx.fillRect(-torsoW / 2 - 3, torsoY - 1, 3.5, 12);
+      ctx.fillStyle = '#2980b9';
+      ctx.fillRect(-torsoW / 2 - 3, torsoY + 1, 3.5, 1.5);
+      ctx.fillRect(-torsoW / 2 - 3, torsoY + 7, 3.5, 1.5);
+      ctx.restore();
+    } else if (arc.isSamantha) {
+      // Samantha (Logistics Porter): Sleek speed courier jersey with orange chevron
+      ctx.fillStyle = '#0984e3';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#e17055';
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2, torsoY + 3);
+      ctx.lineTo(0, torsoY + 6);
+      ctx.lineTo(torsoW / 2, torsoY + 3);
+      ctx.lineTo(torsoW / 2, torsoY + 4.8);
+      ctx.lineTo(0, torsoY + 7.8);
+      ctx.lineTo(-torsoW / 2, torsoY + 4.8);
+      ctx.fill();
+
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2 + 1, torsoY);
+      ctx.lineTo(torsoW / 2, torsoY + torsoH);
+      ctx.stroke();
+    } else if (arc.isLucas) {
+      // Lucas (Combat Medic): Tactical medical vest with Red Cross emblem
+      ctx.fillStyle = '#f1f2f6';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(-1.2, torsoY + 3, 2.4, 6);
+      ctx.fillRect(-3, torsoY + 4.8, 6, 2.4);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-torsoW / 2 - 1, torsoY + 1, 2.5, 3.5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY + 1.8, 1.5, 2);
+    } else if (arc.isBoris) {
+      // Boris (Heavy Demolitionist): Heavy blast flak jacket with 40mm grenade bandolier sash
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, torsoW + 1, torsoH);
+
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(-torsoW / 2, torsoY - 1, torsoW, 2);
+
+      ctx.strokeStyle = '#636e72';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2, torsoY + 1);
+      ctx.lineTo(torsoW / 2, torsoY + torsoH - 1);
+      ctx.stroke();
+
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(-2.5, torsoY + 2.5, 2, 2.5);
+      ctx.fillStyle = '#c0392b';
+      ctx.fillRect(0.5, torsoY + 5.5, 2, 2.5);
     } else {
-      // Generic / Other Inhabitant: Jumpsuit matching specialty
       ctx.fillStyle = this.specialty === 'armory' ? '#d35400' :
                       this.specialty === 'clinic' ? '#27ae60' :
                       this.specialty === 'workshop' ? '#f39c12' : '#2980b9';
@@ -7074,17 +8082,19 @@ class Survivor {
   }
 
   // --- 3. HEAD, HAIR, CAPS & ACCESSORIES ---
-  drawSurvivorHead(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
-    const headY = -21 + bob;
-    const skinColor = isMarcus || isToby ? '#f5cd79' : isSarah ? '#ffeaa7' : isAiden ? '#f0c294' : '#ffdfba';
+  drawSurvivorHead(ctx, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[2], isElena: arguments[3], isSarah: arguments[4], isToby: arguments[5], isAiden: arguments[6] };
+    }
 
-    // Head base
+    const headY = -21 + bob;
+    const skinColor = arc.isMarcus || arc.isToby ? '#f5cd79' : arc.isSarah ? '#ffeaa7' : arc.isAiden ? '#f0c294' : '#ffdfba';
+
     ctx.fillStyle = skinColor;
     ctx.beginPath();
     ctx.arc(0, headY, 4.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eye dot (subtle blink every few seconds)
     const isBlinking = (this.idleTime % 3.8) < 0.12;
     if (!isBlinking) {
       ctx.fillStyle = '#1e272e';
@@ -7100,90 +8110,137 @@ class Survivor {
       ctx.stroke();
     }
 
-    if (isMarcus) {
-      // Marcus: 5 o'clock beard stubble
+    if (arc.isMarcus) {
       ctx.fillStyle = 'rgba(50, 30, 15, 0.35)';
       ctx.fillRect(0.5, headY + 1.2, 3, 2);
 
-      // Messy brown hair
       ctx.fillStyle = '#3a2010';
       ctx.beginPath();
       ctx.arc(0, headY - 1.5, 4.5, Math.PI, 0);
       ctx.fill();
 
-      // Protective brass ballistic goggles on forehead
-      ctx.strokeStyle = '#111111'; // Elastic strap around head
+      ctx.strokeStyle = '#111111';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(-4.2, headY - 1.8);
       ctx.lineTo(4.2, headY - 1.8);
       ctx.stroke();
 
-      // Twin brass-rimmed lenses on forehead
-      ctx.fillStyle = '#d4af37'; // Brass rim
+      ctx.fillStyle = '#d4af37';
       ctx.fillRect(-1.8, headY - 3.8, 2.5, 2.5);
       ctx.fillRect(1.0, headY - 3.8, 2.5, 2.5);
-      ctx.fillStyle = '#2e4a28'; // Tinted green/olive glass
+      ctx.fillStyle = '#2e4a28';
       ctx.fillRect(-1.3, headY - 3.3, 1.5, 1.5);
       ctx.fillRect(1.5, headY - 3.3, 1.5, 1.5);
-    } else if (isElena) {
-      // Elena: Brunette ponytail at back
+    } else if (arc.isElena) {
       ctx.fillStyle = '#2c1810';
       ctx.beginPath();
       ctx.arc(-4, headY + 1, 2.2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Safety hardhat & welder visor
-      ctx.fillStyle = '#f39c12'; // Bright yellow industrial hardhat
+      ctx.fillStyle = '#f39c12';
       ctx.beginPath();
       ctx.arc(0, headY - 1.2, 4.8, Math.PI, 0);
       ctx.fill();
-      // Hardhat front brim
       ctx.fillStyle = '#d68910';
       ctx.fillRect(-2, headY - 1.5, 7, 1.5);
 
-      // Flip-up dark welder visor above brow
       ctx.fillStyle = '#1c2833';
       ctx.fillRect(1.5, headY - 3.5, 3.8, 2);
       ctx.strokeStyle = '#7f8c8d';
       ctx.lineWidth = 0.8;
       ctx.strokeRect(1.5, headY - 3.5, 3.8, 2);
-    } else if (isSarah) {
-      // Doc Sarah: Light seafoam/cyan surgical scrub cap
+    } else if (arc.isSarah) {
       ctx.fillStyle = '#00d2d3';
       ctx.beginPath();
       ctx.arc(0, headY - 1.2, 4.6, Math.PI, 0);
       ctx.fill();
       ctx.fillStyle = '#01a3a4';
-      ctx.fillRect(-4.2, headY - 1.5, 8.4, 1.5); // Cap headband
-    } else if (isToby) {
-      // Toby: Broad-brimmed woven straw hat with green ribbon
-      ctx.fillStyle = '#eccc68'; // Woven golden straw brim
+      ctx.fillRect(-4.2, headY - 1.5, 8.4, 1.5);
+    } else if (arc.isToby) {
+      ctx.fillStyle = '#eccc68';
       ctx.beginPath();
       ctx.ellipse(0, headY - 1.8, 8, 2.2, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Rounded crown
       ctx.fillStyle = '#f5cd79';
       ctx.beginPath();
       ctx.arc(0, headY - 2.8, 3.8, Math.PI, 0);
       ctx.fill();
 
-      // Forest green ribbon band
       ctx.fillStyle = '#27ae60';
       ctx.fillRect(-3.6, headY - 3.2, 7.2, 1.2);
-    } else if (isAiden) {
-      // Aiden: Tactical military commando beret with golden crest badge
-      ctx.fillStyle = '#1b4332'; // Forest-green beret pulled over right brow
+    } else if (arc.isAiden) {
+      ctx.fillStyle = '#1b4332';
       ctx.beginPath();
       ctx.ellipse(0.5, headY - 2.2, 4.8, 2.6, 0.25, 0, Math.PI * 2);
       ctx.fill();
 
-      // Golden military crest insignia pin
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(1.5, headY - 3.2, 1.5, 1.5);
+    } else if (arc.isJackson) {
+      // Jackson: Camo tactical sniper cap & cyan optic
+      ctx.fillStyle = '#2d4a22';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.5, 4.5, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(-3.5, headY - 1.8, 8, 1.4);
+
+      ctx.fillStyle = '#00f3ff';
+      ctx.fillRect(1.5, headY - 1.0, 2.0, 2.0);
+    } else if (arc.isMaya) {
+      // Maya: Amber electrical safety goggles & ponytail
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.arc(-4, headY + 1, 2.0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(-1.5, headY - 3.2, 5, 2);
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(-1.5, headY - 3.2, 5, 2);
+    } else if (arc.isCarlos) {
+      // Carlos: White architect hardhat & carpenter pencil
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.5, 4.6, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#dcdde1';
+      ctx.fillRect(-4.5, headY - 1.5, 9, 1.5);
+
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillRect(-3.5, headY - 1.2, 1.2, 3.5);
+    } else if (arc.isSamantha) {
+      // Samantha: Sporty running visor & high swept ponytail
+      ctx.fillStyle = '#2d1508';
+      ctx.beginPath();
+      ctx.arc(-4.5, headY - 1.5, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e17055';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.2, 4.4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(-1, headY - 1.5, 6, 1.5);
+    } else if (arc.isLucas) {
+      // Lucas: Field surgical headset
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.2, 4.4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#00d2d3';
+      ctx.beginPath();
+      ctx.arc(1.5, headY - 2.5, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (arc.isBoris) {
+      // Boris: Rugged beard stubble & welded blast shield visor
+      ctx.fillStyle = 'rgba(30, 20, 10, 0.45)';
+      ctx.fillRect(0, headY + 1.2, 3.5, 2.5);
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(-2, headY - 4.5, 6.5, 2.5);
+      ctx.strokeStyle = '#2f3542';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(-2, headY - 4.5, 6.5, 2.5);
     } else {
-      // Generic cap
       ctx.fillStyle = '#34495e';
       ctx.beginPath();
       ctx.arc(0, headY - 1.5, 4.4, Math.PI, 0);
@@ -7192,13 +8249,16 @@ class Survivor {
   }
 
   // --- 4. ARMS, HELD TOOLS & TASK ANIMATIONS ---
-  drawSurvivorArmsAndItems(ctx, bob, armSwing, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorArmsAndItems(ctx, bob, armSwing, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[3], isElena: arguments[4], isSarah: arguments[5], isToby: arguments[6], isAiden: arguments[7] };
+    }
+
     const shoulderY = -15 + bob;
 
-    // --- SPECIAL ANIMATION: Carrying Ammo Crate ---
+    // Carrying Ammo Crate
     if (this.carryingAmmo) {
-      // Both arms wrapped forward holding heavy munitions box
-      ctx.strokeStyle = isMarcus ? '#8b4513' : '#34495e';
+      ctx.strokeStyle = arc.isMarcus ? '#8b4513' : '#34495e';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.moveTo(-1, shoulderY);
@@ -7206,45 +8266,38 @@ class Survivor {
       ctx.lineTo(8, shoulderY + 4);
       ctx.stroke();
 
-      // Heavy olive green steel military munitions box with yellow stencils
-      ctx.fillStyle = '#2d4a22'; // Olive drab
+      ctx.fillStyle = '#2d4a22';
       ctx.fillRect(3, -17 + bob, 14, 9);
-      ctx.strokeStyle = '#576574'; // Steel frame brackets
+      ctx.strokeStyle = '#576574';
       ctx.lineWidth = 1;
       ctx.strokeRect(3, -17 + bob, 14, 9);
 
-      // Yellow & black hazard diagonal stripes along bottom rim
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(3, -9 + bob, 14, 1.8);
       ctx.fillStyle = '#111111';
       ctx.fillRect(6, -9 + bob, 2.5, 1.8);
       ctx.fillRect(11, -9 + bob, 2.5, 1.8);
 
-      // Munitions label stencil
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 5px monospace';
       ctx.fillText('AMMO', 4, -12 + bob);
 
-      // Heavy carry side handle
       ctx.strokeStyle = '#1e272e';
       ctx.lineWidth = 1.2;
       ctx.strokeRect(2, -14 + bob, 1.5, 3.5);
       return;
     }
 
-    // --- SPECIAL ANIMATION: Eating at Kitchen ---
+    // Eating at Kitchen
     if (this.needState === 'seeking_food' && this.needTimer > 0) {
-      // Left arm holds warm earthenware bowl
       ctx.fillStyle = '#8d5524';
       ctx.beginPath();
       ctx.arc(4, shoulderY + 4, 3.5, 0, Math.PI);
       ctx.fill();
 
-      // Food stew
       ctx.fillStyle = '#e67e22';
       ctx.fillRect(1, shoulderY + 2.5, 6, 1.5);
 
-      // Soft steam wisps rising from bowl
       const steamCycle = (this.idleTime * 4) % (Math.PI * 2);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 0.8;
@@ -7255,7 +8308,6 @@ class Survivor {
       ctx.lineTo(5.5 + Math.cos(steamCycle) * 1.5, shoulderY - 5);
       ctx.stroke();
 
-      // Right arm lifts spoon to mouth rhythmically
       const spoonBob = Math.sin(this.needTimer * 7) * 3.5;
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
@@ -7266,15 +8318,13 @@ class Survivor {
       return;
     }
 
-    // --- SPECIAL ANIMATION: Drinking at Water Filter ---
+    // Drinking at Water Filter
     if (this.needState === 'seeking_water' && this.needTimer > 0) {
-      // Both hands lift water flask to lips
-      ctx.fillStyle = '#0ea5e9'; // Blue thermos flask
+      ctx.fillStyle = '#0ea5e9';
       ctx.fillRect(2, shoulderY - 3, 4, 6);
-      ctx.fillStyle = '#e2e8f0'; // Silver cap
+      ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(2.5, shoulderY - 4.5, 3, 1.5);
 
-      // Tiny refreshing water droplet glint
       ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
       ctx.arc(3.5, shoulderY - 5, 0.8, 0, Math.PI * 2);
@@ -7282,37 +8332,33 @@ class Survivor {
       return;
     }
 
-    // --- STANDARD STATE: Role-specific arms & tools ---
-    // Back arm (swings counter to front)
-    ctx.strokeStyle = isSarah ? '#f8fafc' : isElena ? '#ff5722' : '#34495e';
+    // Standard arms & tools
+    ctx.strokeStyle = arc.isSarah ? '#f8fafc' : arc.isElena ? '#ff5722' : '#34495e';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.moveTo(1, shoulderY);
     ctx.lineTo(2 - armSwing * 0.7, shoulderY + 6);
     ctx.stroke();
 
-    // Front arm with tool or natural swing
-    ctx.strokeStyle = isSarah ? '#f8fafc' : isElena ? '#ff5722' : '#34495e';
+    ctx.strokeStyle = arc.isSarah ? '#f8fafc' : arc.isElena ? '#ff5722' : '#34495e';
     ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(-1, shoulderY);
 
-    if (isMarcus) {
-      // Marcus: Heavy gunsmith wrench in hand
+    if (arc.isMarcus) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.strokeStyle = '#7f8c8d'; // Steel wrench
+      ctx.strokeStyle = '#7f8c8d';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 5);
       ctx.lineTo(7, shoulderY + 3);
       ctx.stroke();
       ctx.strokeRect(6.5, shoulderY + 1.5, 2.5, 2.5);
-    } else if (isElena) {
-      // Elena: Adjustable repair pipe wrench / welding tool
+    } else if (arc.isElena) {
       ctx.lineTo(3, shoulderY + 4);
       ctx.stroke();
-      ctx.strokeStyle = '#e74c3c'; // Red handle wrench
+      ctx.strokeStyle = '#e74c3c';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 4);
@@ -7320,11 +8366,10 @@ class Survivor {
       ctx.stroke();
       ctx.strokeStyle = '#95a5a6';
       ctx.strokeRect(6.5, shoulderY + 0.5, 2.5, 2.5);
-    } else if (isToby) {
-      // Toby: Steel garden pruning shears
+    } else if (arc.isToby) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.strokeStyle = '#cbd5e1'; // Stainless steel shear blades
+      ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 5);
@@ -7332,29 +8377,72 @@ class Survivor {
       ctx.moveTo(3, shoulderY + 5);
       ctx.lineTo(6, shoulderY + 6);
       ctx.stroke();
-    } else if (isAiden) {
-      // Aiden: Tactical sidearm resting at combat ready
+    } else if (arc.isAiden) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.fillStyle = '#111111'; // Tactical combat glove
+      ctx.fillStyle = '#111111';
       ctx.fillRect(2.5, shoulderY + 4.5, 2, 2);
+    } else if (arc.isJackson) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(2, shoulderY + 1.5, 11, 2.2);
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(4, shoulderY - 0.5, 4.5, 1.8);
+      ctx.fillStyle = '#5c3a21';
+      ctx.fillRect(1, shoulderY + 3.0, 3, 2);
+    } else if (arc.isMaya) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(2.5, shoulderY + 3.5, 2.2, 2.2);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(4, shoulderY + 2, 4, 5);
+      ctx.fillStyle = '#00f3ff';
+      ctx.fillRect(5, shoulderY + 3, 2, 1.5);
+    } else if (arc.isCarlos) {
+      ctx.lineTo(3, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(3, shoulderY + 2, 1.6, 6);
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(2, shoulderY + 1, 4.5, 2);
+    } else if (arc.isSamantha) {
+      ctx.lineTo(3 + armSwing * 0.9, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#ff7675';
+      ctx.fillRect(2.5, shoulderY + 4, 2, 2);
+    } else if (arc.isLucas) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#00d2d3';
+      ctx.fillRect(2.5, shoulderY + 3.5, 2, 2);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(4, shoulderY + 3, 4, 1.5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(4.5, shoulderY + 3.2, 2.2, 1.1);
+    } else if (arc.isBoris) {
+      ctx.lineTo(3, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(3, shoulderY + 2, 3.5, 6);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(2.5, shoulderY + 1.5, 4.5, 1.2);
+      ctx.fillRect(2.5, shoulderY + 7.5, 4.5, 1.2);
     } else {
-      // Standard arm swing
       ctx.lineTo(-2 + armSwing * 0.8, shoulderY + 6);
       ctx.stroke();
     }
   }
 
-  // --- 5. STATUS OVERLAYS (Health pip, Name tag, Speech bubble) ---
+  // --- 5. STATUS OVERLAYS ---
   drawSurvivorOverlays(ctx, bob, movingLeft) {
-    // Health pip
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     ctx.fillStyle = '#1e272e';
     ctx.fillRect(-7, -27 + bob, 14, 2.5);
     ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
     ctx.fillRect(-7, -27 + bob, 14 * hpRatio, 2.5);
 
-    // Name tag & Level Badge
     ctx.fillStyle = '#ffffff';
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
@@ -7362,10 +8450,9 @@ class Survivor {
     const starPrefix = this.level > 1 ? '⭐' : '';
     ctx.fillText(`${starPrefix}${shortName} [L${this.level}]`, 0, -31 + bob);
 
-    // Speech bubble if speaking
     if (this.speechText) {
       ctx.save();
-      if (movingLeft) ctx.scale(-1, 1); // Un-flip text for readability
+      if (movingLeft) ctx.scale(-1, 1);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
       ctx.font = 'bold 8px monospace';
       const textW = ctx.measureText(this.speechText).width + 8;
@@ -7380,7 +8467,258 @@ class Survivor {
   }
 }
 
+// Fleeing Refugee Pursued by Horde on Surface
+class Refugee {
+  constructor(archetype, side = 'left') {
+    this.archetype = archetype;
+    this.name = archetype.name;
+    this.role = archetype.role;
+    this.skill = archetype.skill;
+    this.avatar = archetype.avatar;
+    this.specialty = archetype.specialty || 'armory';
+    this.assignedRoom = archetype.assignedRoom || this.specialty;
+    this.side = side;
+
+    this.hp = archetype.hp || 100;
+    this.maxHp = 100;
+    this.speed = archetype.speed || 48; // Fleeing sprint speed
+    this.isDead = false;
+    this.isRescued = false;
+
+    // Kinematics on surface
+    this.x = side === 'left' ? -25 : 1305;
+    this.y = CONFIG.SURFACE_Y;
+    this.targetX = CONFIG.ELEVATOR_X; // 640 cabin entrance
+    this.walkCycle = Math.random() * 10;
+    this.facing = side === 'left' ? 1 : -1;
+
+    // Speech & distress timers
+    this.speechText = '';
+    this.speechTimer = 0;
+    this.panicTimer = 0.5;
+    this.hitFlash = 0;
+  }
+
+  say(text, duration = 2.5) {
+    this.speechText = text;
+    this.speechTimer = duration;
+  }
+
+  takeDamage(amount) {
+    if (this.isDead || this.isRescued) return;
+    this.hp -= amount;
+    this.hitFlash = 0.12;
+    if (window.gameEngine && window.gameEngine.particles) {
+      window.gameEngine.particles.spawnBlood(this.x, this.y - 12, 6, '#881111');
+    }
+    if (window.soundSystem) window.soundSystem.playZombieHit();
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.isDead = true;
+      this.die();
+    }
+  }
+
+  die() {
+    const engine = window.gameEngine;
+    if (engine) {
+      engine.particles.spawnBlood(this.x, this.y - 10, 26, '#6b1111');
+      engine.particles.spawnBloodDecal(this.x, CONFIG.SURFACE_Y, '#6b1111', 12, 6);
+      engine.particles.addFloatingText("💀 REFUGEE OVERWHELMED!", this.x - 40, this.y - 35, '#ff3333');
+      engine.addNotification(`💀 REFUGEE LOST: ${this.name} (${this.role}) was killed by the horde!`, 'danger');
+    }
+    if (window.soundSystem && window.soundSystem.playZombieShriek) {
+      window.soundSystem.playZombieShriek();
+    }
+  }
+
+  rescueSuccess() {
+    if (this.isRescued || this.isDead) return;
+    this.isRescued = true;
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    // Floating fanfare and celebratory effects
+    engine.particles.spawnSparks(CONFIG.ELEVATOR_X, CONFIG.SURFACE_Y - 20, 50, '#ffd700');
+    engine.particles.spawnSparks(CONFIG.ELEVATOR_X, CONFIG.SURFACE_Y - 20, 35, '#55ffaa');
+    engine.particles.addFloatingText("🎉 REFUGEE RESCUED!", CONFIG.ELEVATOR_X - 60, CONFIG.SURFACE_Y - 50, '#ffd700');
+    engine.particles.addFloatingText(`🎉 ${this.name.toUpperCase()} JOINED THE CREW!`, CONFIG.ELEVATOR_X - 90, CONFIG.SURFACE_Y - 32, '#55ffaa');
+
+    if (window.soundSystem) {
+      window.soundSystem.playBeep(true);
+    }
+
+    engine.addNotification(`🎉 REFUGEE RESCUED! ${this.name} (${this.role}) joined the bunker crew!`, 'success');
+
+    // Create full Survivor inhabitant
+    const survivorData = {
+      id: 's_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      name: this.name,
+      role: this.role,
+      skill: this.skill,
+      avatar: this.avatar,
+      specialty: this.specialty,
+      assignedRoom: this.assignedRoom || this.specialty,
+      hp: Math.max(45, Math.round(this.hp)),
+      maxHp: 100,
+      hunger: 80,
+      thirst: 80,
+      fatigue: 20,
+      morale: 95
+    };
+    if (this.speed) survivorData.speed = this.speed;
+
+    const newSurvivor = new Survivor(survivorData);
+    newSurvivor.say("Safe inside! Thank you for the covering fire!", 4.0);
+    newSurvivor.x = CONFIG.ELEVATOR_X;
+    newSurvivor.y = CONFIG.SURFACE_Y;
+    engine.survivors.push(newSurvivor);
+
+    // Morale boost for all living bunker survivors
+    for (const s of engine.survivors) {
+      if (!s.isDead) s.morale = Math.min(100, s.morale + 15);
+    }
+
+    // Reset pursuers target
+    for (const z of engine.zombies) {
+      if (z.targetRefugee === this) {
+        z.targetRefugee = null;
+      }
+    }
+  }
+
+  update(dt) {
+    if (this.isDead || this.isRescued) return;
+
+    if (this.hitFlash > 0) this.hitFlash -= dt;
+
+    if (this.speechTimer > 0) {
+      this.speechTimer -= dt;
+      if (this.speechTimer <= 0) this.speechText = '';
+    }
+
+    // Panicked cries for help
+    this.panicTimer -= dt;
+    if (this.panicTimer <= 0) {
+      this.panicTimer = 2.4 + Math.random() * 1.2;
+      const shouts = [
+        "HELP! THEY'RE RIGHT BEHIND ME!",
+        "OPEN THE CABIN DOOR!",
+        "KEEP SHOOTING!",
+        "DON'T LET THEM CATCH ME!",
+        "ALMOST TO SAFETY!"
+      ];
+      this.say(shouts[Math.floor(Math.random() * shouts.length)], 2.0);
+    }
+
+    // Run towards cabin door at 640
+    const dir = this.targetX > this.x ? 1 : -1;
+    this.facing = dir;
+    this.x += dir * this.speed * dt;
+    this.walkCycle += dt * 10;
+
+    // Check if reached cabin entrance
+    if (Math.abs(this.x - this.targetX) < 16) {
+      this.rescueSuccess();
+    }
+  }
+
+  draw(ctx) {
+    if (this.isDead || this.isRescued) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    if (this.facing === -1) ctx.scale(-1, 1);
+
+    if (this.hitFlash > 0) {
+      ctx.filter = 'brightness(2.2)';
+    }
+
+    const bob = Math.abs(Math.sin(this.walkCycle)) * 3.0;
+    const legSwing = Math.cos(this.walkCycle) * 7.5;
+    const armSwing = Math.sin(this.walkCycle) * 8.0;
+
+    ctx.rotate(0.18);
+
+    // Legs & boots
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -7 + bob);
+    ctx.lineTo(-legSwing, -1);
+    ctx.moveTo(0, -7 + bob);
+    ctx.lineTo(legSwing, -1);
+    ctx.stroke();
+
+    // Torso (role colored shirt)
+    const shirtColor = this.specialty === 'security' ? '#2d4a22' :
+                        this.specialty === 'generator' ? '#f39c12' :
+                        this.specialty === 'workshop' ? '#e67e22' :
+                        this.specialty === 'clinic' ? '#16a085' : '#3498db';
+    ctx.fillStyle = shirtColor;
+    ctx.fillRect(-4, -18 + bob, 8, 11);
+
+    // Head
+    ctx.fillStyle = '#ffdfba';
+    ctx.beginPath();
+    ctx.arc(0, -22 + bob, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Terrified mouth & eye
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(1, -21 + bob, 2.5, 2.5);
+    ctx.beginPath();
+    ctx.arc(1.5, -23.5 + bob, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pumping running arms
+    ctx.strokeStyle = '#ffdfba';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -16 + bob);
+    ctx.lineTo(-armSwing * 0.8, -10 + bob);
+    ctx.moveTo(0, -16 + bob);
+    ctx.lineTo(armSwing * 0.8, -12 + bob);
+    ctx.stroke();
+
+    // Health bar
+    const hpRatio = Math.max(0, this.hp / this.maxHp);
+    ctx.fillStyle = '#1e272e';
+    ctx.fillRect(-12, -33 + bob, 24, 3);
+    ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
+    ctx.fillRect(-12, -33 + bob, 24 * hpRatio, 3);
+
+    // Overhead Tag
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    const shortName = this.name.split(' ')[0];
+    ctx.fillText(`🏃 REFUGEE: ${shortName}`, 0, -38 + bob);
+
+    // Speech bubble
+    if (this.speechText) {
+      ctx.save();
+      if (this.facing === -1) ctx.scale(-1, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+      ctx.font = 'bold 8px monospace';
+      const tw = ctx.measureText(this.speechText).width + 8;
+      ctx.fillRect(-tw / 2, -52 + bob, tw, 12);
+      ctx.strokeStyle = '#ff4757';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(-tw / 2, -52 + bob, tw, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(this.speechText, 0, -43 + bob);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+}
+
 window.Survivor = Survivor;
+window.Refugee = Refugee;
 
 
 // --- engine.js ---
@@ -7427,27 +8765,62 @@ class GameEngine {
     this.leftTurret = new Turret('left', 435, CONFIG.SURFACE_Y - 10);
     this.rightTurret = new Turret('right', 845, CONFIG.SURFACE_Y - 10);
 
-    // Atmospheric cabin searchlights mounted on surface house roof (track zombies & sweep forest)
+    // Atmospheric cabin searchlights mounted on multi-story surface cabin & watchtower
     this.searchlights = {
       left: {
-        x: 588,
-        y: CONFIG.SURFACE_Y - 96,
+        x: 586,
+        y: CONFIG.SURFACE_Y - 146,
         angle: Math.PI * 0.85,
         targetAngle: Math.PI * 0.85,
         target: null,
         sweepPhase: 0,
-        range: 520
+        range: 560
       },
       right: {
-        x: 692,
-        y: CONFIG.SURFACE_Y - 96,
+        x: 696,
+        y: CONFIG.SURFACE_Y - 194,
         angle: Math.PI * 0.15,
         targetAngle: Math.PI * 0.15,
         target: null,
         sweepPhase: Math.PI,
-        range: 520
+        range: 580
       }
     };
+
+    // Watchtower Sniper system
+    this.sniperTimer = 0;
+    this.sniperAimAngle = Math.PI * 0.15;
+    this.sniperTarget = null;
+
+    // ── Construction System ─────────────────────────────────────────────────
+    // Two additional roof turrets built autonomously when resources allow
+    this.constructionSites = [
+      {
+        id: 'turret3', label: 'Roof Turret L',
+        x: 540, y: 104,
+        requiredMetal: 80, requiredGunpowder: 40,
+        progress: 0,       // 0-100%
+        built: false,
+        building: false,
+        builder: null,     // assigned survivor reference
+        buildTimer: 0,
+        turret: null,      // Turret instance when built
+        announced: false
+      },
+      {
+        id: 'turret4', label: 'Roof Turret R',
+        x: 740, y: 104,
+        requiredMetal: 80, requiredGunpowder: 40,
+        progress: 0,
+        built: false,
+        building: false,
+        builder: null,
+        buildTimer: 0,
+        turret: null,
+        announced: false
+      }
+    ];
+    this.constructionTimer = 0; // Global hammering sound interval
 
     // Initialize Bunker Rooms
     this.rooms = CONFIG.ROOM_TEMPLATES.map(t => new Room(t));
@@ -7458,6 +8831,9 @@ class GameEngine {
     // Zombies
     this.zombies = [];
 
+    // Fleeing Surface Refugees Pursued by Horde
+    this.refugees = [];
+
     // Notifications
     this.notifications = [];
 
@@ -7467,6 +8843,13 @@ class GameEngine {
       ammoCrafted: 0,
       daysSurvived: 1
     };
+
+    // Power Grid & Renewable Energy Subsystems
+    this.solarOutput = 0;             // Current active solar array output (+15 kW daytime)
+    this.generatorOutput = 0;         // Current diesel generator output (+30 kW active)
+    this.bunkerPowerDemand = 0;       // Total connected bunker power demand (kW)
+    this.netPowerFlow = 0;            // Net surplus/deficit (+/- kW/s)
+    this.lastAutonomousPowerDispatch = -999; // Cooldown timer for AI dispatch
 
     // Input state
     this.mouseX = 0;
@@ -7560,6 +8943,72 @@ class GameEngine {
 
   getRoom(roomId) {
     return this.rooms.find(r => r.id === roomId);
+  }
+
+  getMaxPopulation() {
+    const baseCap = CONFIG.BASE_POPULATION_CAP || 8;
+    const q1 = this.getRoom('quarters_1');
+    const q2 = this.getRoom('quarters_2');
+    const perTier = CONFIG.POPULATION_PER_QUARTERS_TIER || 2;
+    const bonus1 = q1 ? (q1.level - 1) * perTier : 0;
+    const bonus2 = q2 ? (q2.level - 1) * perTier : 0;
+    return baseCap + bonus1 + bonus2;
+  }
+
+  triggerRefugeeEvent() {
+    if (this.isPaused) return;
+
+    // Check if refugee is already active on surface
+    if (this.refugees && this.refugees.some(r => !r.isDead && !r.isRescued)) {
+      return;
+    }
+
+    // Check population capacity
+    const aliveCount = this.survivors.filter(s => !s.isDead).length;
+    const maxPop = this.getMaxPopulation();
+    if (aliveCount >= maxPop) {
+      this.addNotification("📻 Radio: Bunker bunks are FULL! Upgrade Living Quarters to house more refugees.", "warning");
+      return;
+    }
+
+    // Pick next unique archetype or extra archetype
+    const existingNames = this.survivors.map(s => s.name.toLowerCase());
+    let archetype = (CONFIG.UNIQUE_ARCHETYPES || []).find(a => !existingNames.includes(a.name.toLowerCase()));
+    if (!archetype) {
+      const extraPool = CONFIG.EXTRA_ARCHETYPES || [];
+      archetype = extraPool.find(e => !existingNames.includes(e.name.toLowerCase()));
+      if (!archetype) {
+        archetype = {
+          name: 'Survivor ' + (aliveCount + 1),
+          role: 'Outpost Veteran',
+          skill: 'Generalist',
+          avatar: '🧑‍🚀',
+          specialty: 'armory',
+          assignedRoom: 'armory'
+        };
+      }
+    }
+
+    const side = Math.random() > 0.5 ? 'left' : 'right';
+    const refugee = new Refugee(archetype, side);
+    this.refugees.push(refugee);
+
+    if (window.soundSystem) {
+      window.soundSystem.playBeep(true);
+    }
+
+    this.addNotification(`📻 DISTRESS SIGNAL: ${refugee.name} (${refugee.role}) fleeing from forest! DEFEND THEM!`, 'warning');
+    this.particles.addFloatingText(`⚠️ REFUGEE INBOUND! PROTECT ${refugee.name.toUpperCase()}!`, 640, CONFIG.SURFACE_Y - 50, '#ff4757');
+
+    // Spawn 2 to 3 pursuer zombies directly behind refugee
+    const pursuerCount = 2 + (this.waveManager.currentWave >= 2 ? 1 : 0);
+    for (let i = 0; i < pursuerCount; i++) {
+      const pType = (i === 0 && Math.random() < 0.6) ? 'runner' : 'shambler';
+      const pursuer = new Zombie(pType, side);
+      pursuer.x = side === 'left' ? refugee.x - (30 + i * 28) : refugee.x + (30 + i * 28);
+      pursuer.targetRefugee = refugee;
+      this.zombies.push(pursuer);
+    }
   }
 
   addNotification(text, type = 'info') {
@@ -7661,10 +9110,10 @@ class GameEngine {
         }
       }
 
-      // Check house click (repair)
+      // Check house click (repair) - multi-story surface cabin & watchtower
       if (
-        this.mouseX >= 580 && this.mouseX <= 700 &&
-        this.mouseY >= 150 && this.mouseY <= CONFIG.SURFACE_Y
+        this.mouseX >= 565 && this.mouseX <= 715 &&
+        this.mouseY >= 18 && this.mouseY <= CONFIG.SURFACE_Y
       ) {
         this.repairHouse();
       }
@@ -7687,26 +9136,8 @@ class GameEngine {
       this.addNotification(`☀️ Day ${this.dayNumber} has begun! Survivors held through the night.`, 'info');
     }
 
-    // Update Power balance
-    let totalPowerConsumption = 0;
-    for (const room of this.rooms) {
-      totalPowerConsumption += room.powerCost;
-    }
-    // Turret power draw
-    totalPowerConsumption += 4;
-
-    // Generator room check
-    const genRoom = this.getRoom('generator');
-    const genWorkers = this.survivors.filter(s => s.assignedRoom === 'generator' && !s.isDead).length;
-    const hasFuel = this.resources.fuel > 0;
-    
-    if (hasFuel && genWorkers > 0) {
-      const fuelCost = 0.12 * effectiveDt;
-      this.resources.fuel = Math.max(0, this.resources.fuel - fuelCost);
-      this.resources.power = Math.min(CONFIG.RESOURCE_CAPS.power, this.resources.power + 20 * effectiveDt);
-    } else {
-      this.resources.power = Math.max(0, this.resources.power - totalPowerConsumption * 0.15 * effectiveDt);
-    }
+    // Update Power Grid (Solar Array, Diesel Generator, Battery Buffer, and Autonomous Logistics)
+    this.updatePowerGrid(effectiveDt);
 
     const isPowered = this.resources.power > 5;
 
@@ -7742,6 +9173,12 @@ class GameEngine {
     // Update Turrets
     this.leftTurret.update(effectiveDt, this.zombies);
     this.rightTurret.update(effectiveDt, this.zombies);
+    // Update additional roof turrets if built
+    for (const site of this.constructionSites) {
+      if (site.built && site.turret) {
+        site.turret.update(effectiveDt, this.zombies);
+      }
+    }
 
     // Update Zombies & Wave Manager
     this.waveManager.update(effectiveDt, this.zombies);
@@ -7753,15 +9190,32 @@ class GameEngine {
       }
     }
 
+    // Update Surface Refugees Pursued by Horde
+    if (this.refugees) {
+      for (let i = this.refugees.length - 1; i >= 0; i--) {
+        const ref = this.refugees[i];
+        ref.update(effectiveDt);
+        if (ref.isDead || ref.isRescued) {
+          this.refugees.splice(i, 1);
+        }
+      }
+    }
+
     // Update Cabin Searchlights
     this.updateSearchlights(effectiveDt);
+
+    // Update Elevated Watchtower Sniper Autonomous Defense
+    this.updateSniper(effectiveDt);
+
+    // Update Autonomous Construction (Turrets 3 & 4 building)
+    this.updateConstruction(effectiveDt);
 
     // Update FX
     this.particles.update(effectiveDt, this.dayTime);
 
-    // Occasional chimney smoke puff
+    // Occasional chimney smoke puff from high masonry flue pipe
     if (Math.random() < 0.14 * effectiveDt * 25) {
-      this.particles.spawnSmokePuff(678, CONFIG.SURFACE_Y - 116, 5 + Math.random() * 3);
+      this.particles.spawnSmokePuff(707, 102, 5 + Math.random() * 3);
     }
 
     // Atmospheric night wind breeze audio
@@ -7816,8 +9270,11 @@ class GameEngine {
       room.draw(ctx, isPowered, workers);
     }
 
-    // 10. Draw Survivors
+    // 10. Draw Survivors (Sniper stationed in elevated watchtower nest)
     for (const s of this.survivors) {
+      if (s.id === 'jackson' || s.id === 's6' || (s.role && s.role.toLowerCase().includes('sniper')) || (s.skill && s.skill.toLowerCase().includes('marksman'))) {
+        continue;
+      }
       s.draw(ctx);
     }
 
@@ -7825,9 +9282,19 @@ class GameEngine {
     this.leftTurret.draw(ctx);
     this.rightTurret.draw(ctx);
 
+    // 11.5 Draw construction sites & built roof turrets
+    this.drawConstructionSites(ctx);
+
     // 12. Draw Zombies
     for (const z of this.zombies) {
       z.draw(ctx);
+    }
+
+    // 12.5. Draw Surface Refugees Fleeing from Forest
+    if (this.refugees) {
+      for (const ref of this.refugees) {
+        ref.draw(ctx);
+      }
     }
 
     // 13. Draw Particle Effects, Tracers, Spits
@@ -8418,317 +9885,997 @@ class GameEngine {
     ctx.strokeRect(hatchX, stripeY, hatchW, stripeH);
   }
 
+  // Draw construction blueprints, progress bars, and built roof turrets
+  drawConstructionSites(ctx) {
+    if (!this.constructionSites) return;
+
+    for (const site of this.constructionSites) {
+      if (site.built && site.turret) {
+        // Draw the completed turret
+        site.turret.draw(ctx);
+        continue;
+      }
+
+      const { x, y, progress, building, announced } = site;
+      if (!announced && progress <= 0) continue; // Not yet unlocked visually
+
+      ctx.save();
+
+      // ── Scaffolding blueprint (dashed outline) ────────────────────────────
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = building ? '#F9CA24' : '#00D2FF';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 400) * 0.15;
+      ctx.strokeRect(x - 14, y - 14, 28, 28);
+
+      // Blueprint label
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.85;
+      ctx.font = 'bold 9px "Courier New"';
+      ctx.fillStyle = building ? '#F9CA24' : '#00D2FF';
+      ctx.textAlign = 'center';
+      ctx.fillText(site.label, x, y - 18);
+
+      // ── Progress bar ──────────────────────────────────────────────────────
+      if (building) {
+        const barW = 36, barH = 5;
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x - barW / 2, y + 16, barW, barH);
+        ctx.fillStyle = '#00FF88';
+        ctx.fillRect(x - barW / 2, y + 16, barW * (progress / 100), barH);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x - barW / 2, y + 16, barW, barH);
+
+        // Builder icon (hard-hat silhouette above site)
+        ctx.fillStyle = '#F9CA24';
+        ctx.beginPath();
+        ctx.arc(x, y - 32, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Hard hat
+        ctx.fillStyle = '#E67E22';
+        ctx.beginPath();
+        ctx.ellipse(x, y - 35, 5.5, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Hammering arm animation
+        const hamAngle = Math.sin(Date.now() / 180) * 0.6;
+        ctx.strokeStyle = '#DDD';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y - 29);
+        ctx.lineTo(x + 7 + Math.cos(hamAngle) * 6, y - 24 + Math.sin(hamAngle) * 6);
+        ctx.stroke();
+        // Hammer head
+        ctx.fillStyle = '#888';
+        ctx.fillRect(x + 10 + Math.cos(hamAngle) * 5, y - 23 + Math.sin(hamAngle) * 5, 4, 3);
+
+        // Progress % text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 8px "Courier New"';
+        ctx.fillText(`${Math.floor(progress)}%`, x, y + 30);
+      }
+
+      ctx.restore();
+    }
+  }
+
   drawHouse(ctx) {
     const hx = 575;
-    const hy = CONFIG.SURFACE_Y - 80;
     const hw = 130;
-    const hh = 80;
+    const groundY = CONFIG.SURFACE_Y; // 240
+    const f1_y = groundY - 70; // 170 (Floor 1: y 170 to 240, h: 70)
+    const f2_y = f1_y - 66;    // 104 (Floor 2: y 104 to 170, h: 66)
+    const towerW = 76;
+    const towerX = 624;        // Watchtower: x 624 to 700 (w: 76)
+    const towerDeckY = 66;     // Watchtower deck at y: 66
+    const towerApexY = 18;     // Watchtower canopy apex at y: 18
 
-    // 1. Drop Shadow underneath cabin footprint
-    ctx.fillStyle = 'rgba(12, 16, 20, 0.48)';
+    const isNightOrDusk = this.dayTime < 6.5 || this.dayTime >= 18.0 || this.waveManager.isHordeActive;
+
+    // =========================================================================
+    // 1. GROUND DROP SHADOW UNDER CABIN FOOTPRINT
+    // =========================================================================
+    ctx.fillStyle = 'rgba(10, 14, 18, 0.52)';
     ctx.beginPath();
-    ctx.ellipse(hx + hw * 0.5, CONFIG.SURFACE_Y + 1, hw * 0.56, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(hx + hw * 0.5, groundY + 1, hw * 0.58, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Interlocking Rough-Hewn Timber Logs (7 stacked courses)
-    const logH = hh / 7;
-    for (let l = 0; l < 7; l++) {
-      const ly = hy + l * logH;
+    // =========================================================================
+    // 2. FLOOR 1 (GROUND FLOOR) - FORTIFIED TIMBER CABIN & BARRICADED ENTRANCE
+    // =========================================================================
+    const f1_h = groundY - f1_y; // 70
+    const f1_logCount = 6;
+    const f1_logH = f1_h / f1_logCount; // ~11.66
+
+    // Interlocking rough-hewn timber logs (Heartwood Cedar)
+    for (let l = 0; l < f1_logCount; l++) {
+      const ly = f1_y + l * f1_logH;
       const isOdd = l % 2 === 1;
 
-      // Base heartwood cedar gradient
-      const logGrad = ctx.createLinearGradient(hx, ly, hx, ly + logH);
+      const logGrad = ctx.createLinearGradient(hx, ly, hx, ly + f1_logH);
       logGrad.addColorStop(0, '#6e4a2e');
-      logGrad.addColorStop(0.3, '#54371f');
-      logGrad.addColorStop(0.85, '#422a16');
-      logGrad.addColorStop(1, '#2b1a0d');
+      logGrad.addColorStop(0.28, '#54371f');
+      logGrad.addColorStop(0.82, '#3e2614');
+      logGrad.addColorStop(1, '#29180b');
 
       ctx.fillStyle = logGrad;
-      // Log extends 5px beyond corner on left/right for saddle-notch cabin look
-      ctx.fillRect(hx - 4, ly, hw + 8, logH);
+      // Protruding saddle-notch log ends
+      ctx.fillRect(hx - 5, ly, hw + 10, f1_logH);
 
-      // Top highlighted bevel edge
+      // Top highlighted bevel
       ctx.fillStyle = 'rgba(255, 220, 170, 0.16)';
-      ctx.fillRect(hx - 4, ly, hw + 8, 1.4);
+      ctx.fillRect(hx - 5, ly, hw + 10, 1.4);
 
-      // Deep groove between logs
-      ctx.fillStyle = '#1e1107';
-      ctx.fillRect(hx - 4, ly + logH - 1.2, hw + 8, 1.2);
+      // Deep chinking groove between logs
+      ctx.fillStyle = '#1c1006';
+      ctx.fillRect(hx - 5, ly + f1_logH - 1.2, hw + 10, 1.2);
 
-      // Log end concentric growth rings on protruding notches
+      // Concentric growth rings on saddle notches
       ctx.fillStyle = '#7a5433';
       ctx.beginPath();
-      ctx.arc(hx - 4, ly + logH * 0.5, logH * 0.42, 0, Math.PI * 2);
-      ctx.arc(hx + hw + 4, ly + logH * 0.5, logH * 0.42, 0, Math.PI * 2);
+      ctx.arc(hx - 5, ly + f1_logH * 0.5, f1_logH * 0.42, 0, Math.PI * 2);
+      ctx.arc(hx + hw + 5, ly + f1_logH * 0.5, f1_logH * 0.42, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#321d0d';
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 0.9;
       ctx.stroke();
 
-      // Wood grain striations & knots
-      ctx.strokeStyle = 'rgba(30, 16, 8, 0.35)';
+      // Wood grain striations
+      ctx.strokeStyle = 'rgba(25, 12, 6, 0.35)';
       ctx.lineWidth = 1.0;
       ctx.beginPath();
-      ctx.moveTo(hx + 10, ly + logH * 0.45);
-      ctx.lineTo(hx + hw - 10, ly + logH * 0.45);
+      ctx.moveTo(hx + 8, ly + f1_logH * 0.45);
+      ctx.lineTo(hx + hw - 8, ly + f1_logH * 0.45);
       if (isOdd) {
-        ctx.moveTo(hx + 35, ly + logH * 0.7);
-        ctx.lineTo(hx + 95, ly + logH * 0.7);
+        ctx.moveTo(hx + 30, ly + f1_logH * 0.72);
+        ctx.lineTo(hx + 90, ly + f1_logH * 0.72);
       }
       ctx.stroke();
     }
 
-    // Heavy wrought-iron corner brackets pinning the cabin timbers
+    // Heavy wrought-iron corner brackets with carriage bolts
     ctx.fillStyle = '#1e242c';
-    ctx.fillRect(hx - 3, hy, 6, hh);
-    ctx.fillRect(hx + hw - 3, hy, 6, hh);
-    // Bolt heads on corner brackets
+    ctx.fillRect(hx - 4, f1_y, 7, f1_h);
+    ctx.fillRect(hx + hw - 3, f1_y, 7, f1_h);
     ctx.fillStyle = '#718096';
-    for (let b = hy + 6; b < hy + hh; b += 14) {
+    for (let b = f1_y + 6; b < groundY - 4; b += 14) {
+      ctx.fillRect(hx - 3, b, 5, 3);
+      ctx.fillRect(hx + hw - 2, b, 5, 3);
+    }
+
+    // Floor 1 Observation Window with Warm Radial Glow
+    const f1WinX = hx + 16;
+    const f1WinY = f1_y + 22;
+    const f1WinW = 24;
+    const f1WinH = 24;
+
+    if (isNightOrDusk) {
+      const winGlow = ctx.createRadialGradient(f1WinX + f1WinW * 0.5, f1WinY + f1WinH * 0.5, 4, f1WinX + f1WinW * 0.5, f1WinY + f1WinH * 0.5, 52);
+      winGlow.addColorStop(0, 'rgba(243, 156, 18, 0.60)');
+      winGlow.addColorStop(0.35, 'rgba(230, 126, 34, 0.26)');
+      winGlow.addColorStop(0.7, 'rgba(211, 84, 0, 0.07)');
+      winGlow.addColorStop(1, 'rgba(211, 84, 0, 0)');
+      ctx.fillStyle = winGlow;
+      ctx.beginPath();
+      ctx.arc(f1WinX + f1WinW * 0.5, f1WinY + f1WinH * 0.5, 52, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Window frame & projecting sill
+    ctx.fillStyle = '#2d180d';
+    ctx.fillRect(f1WinX - 3, f1WinY - 3, f1WinW + 6, f1WinH + 8);
+    ctx.fillStyle = '#4a2815';
+    ctx.fillRect(f1WinX - 5, f1WinY + f1WinH, f1WinW + 10, 4);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(f1WinX - 4, f1WinY + f1WinH + 4, f1WinW + 8, 3);
+
+    // Glowing window pane
+    const f1GlassGrad = ctx.createLinearGradient(f1WinX, f1WinY, f1WinX, f1WinY + f1WinH);
+    f1GlassGrad.addColorStop(0, '#f39c12');
+    f1GlassGrad.addColorStop(0.6, '#f1c40f');
+    f1GlassGrad.addColorStop(1, '#e67e22');
+    ctx.fillStyle = f1GlassGrad;
+    ctx.fillRect(f1WinX, f1WinY, f1WinW, f1WinH);
+
+    // Silhouette inside at night
+    if (isNightOrDusk) {
+      ctx.fillStyle = 'rgba(28, 18, 12, 0.68)';
+      ctx.beginPath();
+      ctx.arc(f1WinX + f1WinW * 0.5, f1WinY + 8, 4, 0, Math.PI * 2);
+      ctx.fillRect(f1WinX + f1WinW * 0.5 - 4.5, f1WinY + 12, 9, 10);
+      ctx.fill();
+    }
+
+    // Security iron cross-muntins
+    ctx.strokeStyle = '#2c1e14';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(f1WinX + f1WinW * 0.5, f1WinY); ctx.lineTo(f1WinX + f1WinW * 0.5, f1WinY + f1WinH);
+    ctx.moveTo(f1WinX, f1WinY + f1WinH * 0.5); ctx.lineTo(f1WinX + f1WinW, f1WinY + f1WinH * 0.5);
+    ctx.stroke();
+
+    // Barricaded Bunker Shelter Vault Entrance (Floor 1 Door)
+    const doorX = hx + 56;
+    const doorY = f1_y + 18;
+    const doorW = 30;
+    const doorH = 52;
+
+    ctx.fillStyle = '#22140b';
+    ctx.fillRect(doorX - 3, doorY - 3, doorW + 6, doorH + 3);
+
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(doorX, doorY, doorW, doorH);
+
+    // Perimeter steel rivets & vault handle
+    ctx.fillStyle = '#7f8c8d';
+    for (let ry = doorY + 4; ry < doorY + doorH; ry += 8) {
+      ctx.fillRect(doorX + 2, ry, 2, 2);
+      ctx.fillRect(doorX + doorW - 4, ry, 2, 2);
+    }
+    ctx.fillStyle = '#95a5a6';
+    ctx.fillRect(doorX + doorW - 7, doorY + doorH * 0.5 - 2, 5, 5);
+
+    // Stenciled warning id text
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = 'bold 6px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SHELTER 04', doorX + doorW * 0.5, doorY - 5);
+
+    // Heavy wooden cross barricade planks ('X')
+    ctx.strokeStyle = '#d35400';
+    ctx.lineWidth = 4.0;
+    ctx.beginPath();
+    ctx.moveTo(doorX + 2, doorY + 6); ctx.lineTo(doorX + doorW - 2, doorY + doorH - 6);
+    ctx.moveTo(doorX + doorW - 2, doorY + 6); ctx.lineTo(doorX + 2, doorY + doorH - 6);
+    ctx.moveTo(doorX - 2, doorY + doorH * 0.5); ctx.lineTo(doorX + doorW + 2, doorY + doorH * 0.5);
+    ctx.stroke();
+
+    // Steel reinforcement plates & carriage bolts at plank center
+    ctx.fillStyle = '#34495e';
+    ctx.fillRect(doorX + doorW * 0.5 - 4, doorY + doorH * 0.5 - 4, 8, 8);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(doorX + doorW * 0.5 - 1.5, doorY + doorH * 0.5 - 1.5, 3, 3);
+
+    // Cellar Bulkhead Hatch (Access shaft directly down to subterranean elevator at x: 640)
+    const hatchX = doorX - 2;
+    const hatchY = groundY - 4;
+    const hatchW = doorW + 4;
+    ctx.fillStyle = '#1e2024';
+    ctx.fillRect(hatchX, hatchY, hatchW, 5);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(hatchX, hatchY, hatchW, 5);
+    ctx.clip();
+    ctx.fillStyle = '#f1c40f';
+    for (let hx_s = hatchX - 10; hx_s < hatchX + hatchW + 10; hx_s += 8) {
+      ctx.beginPath();
+      ctx.moveTo(hx_s, hatchY);
+      ctx.lineTo(hx_s + 4, hatchY);
+      ctx.lineTo(hx_s + 1, hatchY + 5);
+      ctx.lineTo(hx_s - 3, hatchY + 5);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hatchX, hatchY, hatchW, 5);
+
+    // Interior Access Ladder (Floor 1 to Floor 2)
+    const ladderX = hx + hw - 18;
+    const ladderW = 11;
+    ctx.fillStyle = '#3a200e';
+    ctx.fillRect(ladderX, f1_y + 2, 2.5, f1_h - 4);
+    ctx.fillRect(ladderX + ladderW - 2.5, f1_y + 2, 2.5, f1_h - 4);
+    ctx.fillStyle = '#94a3b8';
+    for (let ry = f1_y + 8; ry < groundY - 6; ry += 9) {
+      ctx.fillRect(ladderX + 2.5, ry, ladderW - 5, 2.2);
+    }
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(ladderX - 2, f1_y - 1, ladderW + 4, 3);
+
+    // =========================================================================
+    // 3. FLOOR 2 (UPPER FLOOR) - FORTIFIED TIMBER STORY & OBSERVATION GALLERY
+    // =========================================================================
+    // Inter-Story Heavy Timber Tie Beam & Joists (Floor 1 / Floor 2 separator)
+    const joistGrad = ctx.createLinearGradient(hx, f1_y - 4, hx, f1_y + 4);
+    joistGrad.addColorStop(0, '#54371f');
+    joistGrad.addColorStop(0.5, '#3a2212');
+    joistGrad.addColorStop(1, '#201208');
+    ctx.fillStyle = joistGrad;
+    ctx.fillRect(hx - 6, f1_y - 4, hw + 12, 7);
+    ctx.strokeStyle = '#1a0e06';
+    ctx.lineWidth = 1.0;
+    ctx.strokeRect(hx - 6, f1_y - 4, hw + 12, 7);
+
+    ctx.fillStyle = '#1e242c';
+    ctx.fillRect(hx + 28, f1_y - 4, 8, 7);
+    ctx.fillRect(hx + 96, f1_y - 4, 8, 7);
+    ctx.fillStyle = '#718096';
+    ctx.fillRect(hx + 30, f1_y - 2, 4, 3);
+    ctx.fillRect(hx + 98, f1_y - 2, 4, 3);
+
+    // Floor 2 Wall Construction: 5 courses of reinforced timber siding
+    const f2_h = f1_y - f2_y; // 66
+    const f2_logCount = 5;
+    const f2_logH = f2_h / f2_logCount; // ~13.2
+
+    for (let l = 0; l < f2_logCount; l++) {
+      const ly = f2_y + l * f2_logH;
+      const isOdd = l % 2 === 1;
+
+      const f2Grad = ctx.createLinearGradient(hx, ly, hx, ly + f2_logH);
+      f2Grad.addColorStop(0, '#664327');
+      f2Grad.addColorStop(0.3, '#4e3119');
+      f2Grad.addColorStop(0.85, '#38200f');
+      f2Grad.addColorStop(1, '#241408');
+
+      ctx.fillStyle = f2Grad;
+      ctx.fillRect(hx - 4, ly, hw + 8, f2_logH);
+
+      ctx.fillStyle = 'rgba(255, 215, 160, 0.14)';
+      ctx.fillRect(hx - 4, ly, hw + 8, 1.3);
+      ctx.fillStyle = '#180d05';
+      ctx.fillRect(hx - 4, ly + f2_logH - 1.2, hw + 8, 1.2);
+
+      // Saddle notches on Floor 2 corners
+      ctx.fillStyle = '#724b2b';
+      ctx.beginPath();
+      ctx.arc(hx - 4, ly + f2_logH * 0.5, f2_logH * 0.40, 0, Math.PI * 2);
+      ctx.arc(hx + hw + 4, ly + f2_logH * 0.5, f2_logH * 0.40, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#2b170a';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(20, 10, 4, 0.32)';
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(hx + 10, ly + f2_logH * 0.5);
+      ctx.lineTo(hx + hw - 10, ly + f2_logH * 0.5);
+      if (isOdd) {
+        ctx.moveTo(hx + 40, ly + f2_logH * 0.75);
+        ctx.lineTo(hx + 85, ly + f2_logH * 0.75);
+      }
+      ctx.stroke();
+    }
+
+    // Floor 2 corner iron brackets & bolts
+    ctx.fillStyle = '#1e242c';
+    ctx.fillRect(hx - 3, f2_y, 6, f2_h);
+    ctx.fillRect(hx + hw - 3, f2_y, 6, f2_h);
+    ctx.fillStyle = '#718096';
+    for (let b = f2_y + 8; b < f1_y - 4; b += 14) {
       ctx.fillRect(hx - 2, b, 4, 3);
       ctx.fillRect(hx + hw - 2, b, 4, 3);
     }
 
-    // 3. Pitched Roof with Detailed Overlapping Shingles & Crossed Ridge Timber (as in sketch)
-    const apexX = hx + hw * 0.5;
-    const apexY = hy - 48;
-    const overhang = 14;
+    // Floor 2 Fortified Observation Slit & Warm Ambient Interior Light
+    const f2SlitX = hx + 18;
+    const f2SlitY = f2_y + 20;
+    const f2SlitW = 28;
+    const f2SlitH = 16;
 
-    // Roof Gable Triangle Base
-    ctx.fillStyle = '#3a2113';
-    ctx.beginPath();
-    ctx.moveTo(hx - overhang, hy);
-    ctx.lineTo(apexX, apexY);
-    ctx.lineTo(hx + hw + overhang, hy);
-    ctx.closePath();
-    ctx.fill();
-
-    // Overlapping Slate / Cedar Roof Shingles (5 distinct tiered courses)
-    const shingleTiers = 5;
-    const shingleColors = ['#5c2e17', '#6e381c', '#4a2412', '#7a3e1f'];
-    for (let s = 0; s < shingleTiers; s++) {
-      const t1 = s / shingleTiers;
-      const t2 = (s + 1) / shingleTiers;
-      const y1 = hy - t1 * (hy - apexY);
-      const y2 = hy - t2 * (hy - apexY);
-      const leftX1 = (hx - overhang) + t1 * (apexX - (hx - overhang));
-      const leftX2 = (hx - overhang) + t2 * (apexX - (hx - overhang));
-      const rightX1 = (hx + hw + overhang) - t1 * ((hx + hw + overhang) - apexX);
-      const rightX2 = (hx + hw + overhang) - t2 * ((hx + hw + overhang) - apexX);
-
-      // Shingle course polygon
-      ctx.fillStyle = shingleColors[s % shingleColors.length];
+    if (isNightOrDusk) {
+      const slitGlow = ctx.createRadialGradient(f2SlitX + f2SlitW * 0.5, f2SlitY + f2SlitH * 0.5, 3, f2SlitX + f2SlitW * 0.5, f2SlitY + f2SlitH * 0.5, 46);
+      slitGlow.addColorStop(0, 'rgba(243, 156, 18, 0.55)');
+      slitGlow.addColorStop(0.4, 'rgba(230, 126, 34, 0.22)');
+      slitGlow.addColorStop(0.8, 'rgba(211, 84, 0, 0.05)');
+      slitGlow.addColorStop(1, 'rgba(211, 84, 0, 0)');
+      ctx.fillStyle = slitGlow;
       ctx.beginPath();
-      ctx.moveTo(leftX1, y1);
-      ctx.lineTo(leftX2, y2);
-      ctx.lineTo(rightX2, y2);
-      ctx.lineTo(rightX1, y1);
-      ctx.closePath();
+      ctx.arc(f2SlitX + f2SlitW * 0.5, f2SlitY + f2SlitH * 0.5, 46, 0, Math.PI * 2);
       ctx.fill();
+    }
 
-      // Shingle drop shadow and bottom lip
-      ctx.strokeStyle = '#271208';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(leftX1, y1); ctx.lineTo(rightX1, y1);
-      ctx.stroke();
+    ctx.fillStyle = '#1e242c';
+    ctx.fillRect(f2SlitX - 3, f2SlitY - 3, f2SlitW + 6, f2SlitH + 6);
+    ctx.fillStyle = '#718096';
+    ctx.fillRect(f2SlitX - 2, f2SlitY - 2, 2, 2);
+    ctx.fillRect(f2SlitX + f2SlitW, f2SlitY - 2, 2, 2);
+    ctx.fillRect(f2SlitX - 2, f2SlitY + f2SlitH, 2, 2);
+    ctx.fillRect(f2SlitX + f2SlitW, f2SlitY + f2SlitH, 2, 2);
 
-      // Vertical relief slits between individual shingle tiles
-      ctx.strokeStyle = 'rgba(25, 12, 6, 0.45)';
-      ctx.lineWidth = 1.0;
-      const shingleCount = 10 - s;
-      const step = (rightX1 - leftX1) / shingleCount;
-      for (let sc = 1; sc < shingleCount; sc++) {
-        const sx = leftX1 + sc * step;
+    const slitGrad = ctx.createLinearGradient(f2SlitX, f2SlitY, f2SlitX, f2SlitY + f2SlitH);
+    slitGrad.addColorStop(0, '#f39c12');
+    slitGrad.addColorStop(0.6, '#f1c40f');
+    slitGrad.addColorStop(1, '#d35400');
+    ctx.fillStyle = slitGrad;
+    ctx.fillRect(f2SlitX, f2SlitY, f2SlitW, f2SlitH);
+
+    // Sliding ballistic shutter
+    ctx.fillStyle = '#2d3748';
+    ctx.fillRect(f2SlitX + f2SlitW - 10, f2SlitY, 10, f2SlitH);
+    ctx.strokeStyle = '#1a202c';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(f2SlitX + f2SlitW - 10, f2SlitY, 10, f2SlitH);
+
+    // Floor 2 Sandbag Breastwork Parapet (Fortified Defense Balcony)
+    const sbStartX = hx + 58;
+    const sbEndX = hx + hw - 14;
+    const sbY = f1_y - 20;
+
+    const sandbagColors = ['#8c7457', '#9b8062', '#7b6449', '#a68c6e'];
+    const bagW = 14;
+    const bagH = 8;
+    for (let row = 0; row < 2; row++) {
+      const by = sbY + row * (bagH - 2);
+      const offset = row % 2 === 1 ? 5 : 0;
+      for (let bx = sbStartX + offset; bx < sbEndX; bx += bagW - 2) {
+        ctx.fillStyle = sandbagColors[(Math.floor(bx / bagW) + row) % sandbagColors.length];
         ctx.beginPath();
-        ctx.moveTo(sx, y1);
-        ctx.lineTo(sx + (sc % 2 === 0 ? 2 : -2), y2);
+        if (ctx.roundRect) {
+          ctx.roundRect(bx, by, bagW, bagH, 3);
+        } else {
+          ctx.rect(bx, by, bagW, bagH);
+        }
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(50, 36, 20, 0.45)';
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(bx + 2, by + bagH * 0.5);
+        ctx.lineTo(bx + bagW - 2, by + bagH * 0.5);
         ctx.stroke();
+
+        ctx.fillStyle = '#5a452d';
+        ctx.fillRect(bx + 1, by + bagH * 0.35, 2, 3);
       }
     }
 
-    // Heavy Roof Ridge Rafter Rim & Cross Beams ('X' at peak matching original sketch)
-    ctx.strokeStyle = '#271208';
-    ctx.lineWidth = 3.5;
+    // Floor 2 to Watchtower Access Ladder
+    ctx.fillStyle = '#3a200e';
+    ctx.fillRect(ladderX, f2_y + 2, 2.5, f2_h - 4);
+    ctx.fillRect(ladderX + ladderW - 2.5, f2_y + 2, 2.5, f2_h - 4);
+    ctx.fillStyle = '#94a3b8';
+    for (let ry = f2_y + 8; ry < f1_y - 4; ry += 9) {
+      ctx.fillRect(ladderX + 2.5, ry, ladderW - 5, 2.2);
+    }
+
+    // =========================================================================
+    // 4. CABIN ROOF & HIGH-EFFICIENCY ROOFTOP SOLAR PANEL ARRAY
+    // =========================================================================
+    // Pitched timber roof slope over the left shoulder of Floor 2 (x: 566 to 628)
+    const roofApexX = 628;
+    const roofApexY = 82;
+    const roofEavesX = hx - 10; // 565
+    const roofEavesY = f2_y + 2; // 106
+
+    // Gable triangular backing
+    ctx.fillStyle = '#301b0e';
     ctx.beginPath();
-    ctx.moveTo(hx - overhang, hy);
-    ctx.lineTo(apexX, apexY);
-    ctx.lineTo(hx + hw + overhang, hy);
-    ctx.stroke();
+    ctx.moveTo(roofEavesX, roofEavesY);
+    ctx.lineTo(roofApexX, roofApexY);
+    ctx.lineTo(roofApexX, roofEavesY);
+    ctx.closePath();
+    ctx.fill();
 
-    // Hand-drawn sketch feature: Crossed timber ridge rafters at peak (X)
-    ctx.strokeStyle = '#6e3f22';
-    ctx.lineWidth = 4.0;
-    ctx.beginPath();
-    ctx.moveTo(apexX - 12, apexY + 8);
-    ctx.lineTo(apexX + 12, apexY - 14);
-    ctx.moveTo(apexX + 12, apexY + 8);
-    ctx.lineTo(apexX - 12, apexY - 14);
-    ctx.stroke();
-    ctx.strokeStyle = '#2b170a';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
+    // Cedar shingles on left roof slope (4 tiers)
+    const roofTiers = 4;
+    const shingleColors = ['#5c2e17', '#6e381c', '#4a2412', '#7a3e1f'];
+    for (let t = 0; t < roofTiers; t++) {
+      const frac1 = t / roofTiers;
+      const frac2 = (t + 1) / roofTiers;
+      const y1 = roofEavesY - frac1 * (roofEavesY - roofApexY);
+      const y2 = roofEavesY - frac2 * (roofEavesY - roofApexY);
+      const x1 = roofEavesX + frac1 * (roofApexX - roofEavesX);
+      const x2 = roofEavesX + frac2 * (roofApexX - roofEavesX);
 
-    // 4. Heavy Masonry Stone Chimney & Iron Flue Pipe
-    const chimX = hx + hw - 34;
-    const chimY = hy - 46;
-    const chimW = 16;
-    const chimH = 46;
-
-    // Fieldstone masonry base
-    ctx.fillStyle = '#484d56';
-    ctx.fillRect(chimX, chimY, chimW, chimH);
-
-    // Stone courses & mortar lines
-    ctx.strokeStyle = '#2a2e36';
-    ctx.lineWidth = 1.2;
-    for (let my = chimY + 8; my < chimY + chimH; my += 8) {
+      ctx.fillStyle = shingleColors[t % shingleColors.length];
       ctx.beginPath();
-      ctx.moveTo(chimX, my); ctx.lineTo(chimX + chimW, my);
-      ctx.stroke();
-      // Alternating vertical mortar joints
-      const isAlt = (my / 8) % 2 === 0;
-      const mid = isAlt ? chimX + 8 : chimX + 4;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineTo(roofApexX, y2);
+      ctx.lineTo(roofApexX, y1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#271208';
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.moveTo(mid, my - 8); ctx.lineTo(mid, my);
+      ctx.moveTo(x1, y1); ctx.lineTo(roofApexX, y1);
       ctx.stroke();
     }
 
-    // Concrete Chimney Cap with drip overhang
+    // Heavy roof rafter rake beam & overhang
+    ctx.strokeStyle = '#251206';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(roofEavesX - 2, roofEavesY + 3);
+    ctx.lineTo(roofApexX + 1, roofApexY - 1);
+    ctx.stroke();
+
+    // --- HIGH-EFFICIENCY ROOFTOP PHOTOVOLTAIC SOLAR PANEL ARRAY ---
+    // Angled along the roof slope: x: 572 to 622, tilted from y: 104 up to y: 86
+    const spX1 = 572;
+    const spY1 = 104;
+    const spX2 = 622;
+    const spY2 = 86;
+
+    // Extruded aluminum mounting racking rails & tilt struts
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(spX1, spY1 + 1); ctx.lineTo(spX2, spY2 + 1);
+    ctx.moveTo(spX1 + 2, spY1 - 5); ctx.lineTo(spX2 - 2, spY2 - 5);
+    ctx.stroke();
+
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(spX1 + 4, spY1 - 2, 4, 6);
+    ctx.fillRect(spX1 + 24, spY1 - 9, 4, 6);
+    ctx.fillRect(spX2 - 8, spY2 - 2, 4, 6);
+
+    // Dual High-Efficiency Photovoltaic Solar Modules (Angled Polygon)
+    ctx.save();
+    const polyLeft = spX1 + 2;
+    const polyRight = spX2 - 2;
+    const polyTopY1 = spY1 - 7;
+    const polyTopY2 = spY2 - 7;
+    const polyBotY1 = spY1 + 1;
+    const polyBotY2 = spY2 + 1;
+
+    const solarGrad = ctx.createLinearGradient(polyLeft, polyTopY1, polyRight, polyBotY2);
+    solarGrad.addColorStop(0, '#0f172a');
+    solarGrad.addColorStop(0.3, '#1e3a8a');
+    solarGrad.addColorStop(0.7, '#1d4ed8');
+    solarGrad.addColorStop(1, '#0f265c');
+
+    ctx.fillStyle = solarGrad;
+    ctx.beginPath();
+    ctx.moveTo(polyLeft, polyBotY1);
+    ctx.lineTo(polyLeft + 1, polyTopY1);
+    ctx.lineTo(polyRight - 1, polyTopY2);
+    ctx.lineTo(polyRight, polyBotY2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Anodized aluminum frame perimeter
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Central frame divider between dual modules
+    const midSpX = (polyLeft + polyRight) * 0.5;
+    const midSpYTop = (polyTopY1 + polyTopY2) * 0.5;
+    const midSpYBot = (polyBotY1 + polyBotY2) * 0.5;
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(midSpX, midSpYTop); ctx.lineTo(midSpX, midSpYBot);
+    ctx.stroke();
+
+    // Ultra-fine silver conductive wafer grid lines & busbars
+    ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+    ctx.lineWidth = 0.6;
+    for (let gx = polyLeft + 5; gx < polyRight - 4; gx += 6) {
+      if (Math.abs(gx - midSpX) < 3) continue;
+      const t = (gx - polyLeft) / (polyRight - polyLeft);
+      const gyTop = polyTopY1 + t * (polyTopY2 - polyTopY1);
+      const gyBot = polyBotY1 + t * (polyBotY2 - polyBotY1);
+      ctx.beginPath();
+      ctx.moveTo(gx, gyTop); ctx.lineTo(gx, gyBot);
+      ctx.stroke();
+    }
+    for (let r = 1; r <= 2; r++) {
+      const rt = r / 3;
+      const ryLeft = polyTopY1 + rt * (polyBotY1 - polyTopY1);
+      const ryRight = polyTopY2 + rt * (polyBotY2 - polyTopY2);
+      ctx.beginPath();
+      ctx.moveTo(polyLeft + 1, ryLeft); ctx.lineTo(polyRight - 1, ryRight);
+      ctx.stroke();
+    }
+
+    // Dynamic anti-reflective glare sheen
+    if (this.dayTime >= 6.0 && this.dayTime < 18.0) {
+      const sunFactor = Math.sin((this.dayTime - 6.0) / 12.0 * Math.PI);
+      const sheenGrad = ctx.createLinearGradient(polyLeft, polyBotY1, polyRight, polyTopY2);
+      sheenGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+      sheenGrad.addColorStop(0.5, `rgba(186, 230, 253, ${0.45 * sunFactor})`);
+      sheenGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = sheenGrad;
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(147, 197, 253, 0.10)';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Weatherproof junction box & conduit pipe feeding power down to bunker grid
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(spX2 - 4, spY2 - 3, 5, 5);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 5px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚡', spX2 - 1.5, spY2 + 1);
+
+    // Steel conduit pipe running into cabin wall
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(spX2 - 2, spY2 + 2);
+    ctx.lineTo(spX2 - 2, f2_y + 12);
+    ctx.lineTo(spX2 - 6, f2_y + 16);
+    ctx.stroke();
+
+    // =========================================================================
+    // 5. STONE MASONRY CHIMNEY & HIGH IRON FLUE PIPE
+    // =========================================================================
+    const chimX = hx + hw - 32; // 673
+    const chimY = 96;
+    const chimW = 15;
+    const chimH = 74;
+
+    ctx.fillStyle = '#484d56';
+    ctx.fillRect(chimX, chimY, chimW, chimH);
+
+    ctx.strokeStyle = '#2a2e36';
+    ctx.lineWidth = 1.1;
+    for (let my = chimY + 7; my < chimY + chimH; my += 7) {
+      ctx.beginPath();
+      ctx.moveTo(chimX, my); ctx.lineTo(chimX + chimW, my);
+      ctx.stroke();
+      const isAlt = (my / 7) % 2 === 0;
+      const mid = isAlt ? chimX + 8 : chimX + 4;
+      ctx.beginPath();
+      ctx.moveTo(mid, my - 7); ctx.lineTo(mid, my);
+      ctx.stroke();
+    }
+
     ctx.fillStyle = '#6b7280';
     ctx.fillRect(chimX - 2, chimY - 3, chimW + 4, 4);
     ctx.strokeStyle = '#1f2937';
     ctx.lineWidth = 1;
     ctx.strokeRect(chimX - 2, chimY - 3, chimW + 4, 4);
 
-    // Dark Iron Flue Pipe Collar protruding on top
     ctx.fillStyle = '#1e2024';
-    ctx.fillRect(chimX + 4, chimY - 8, 8, 5);
+    ctx.fillRect(chimX + 4, chimY - 8, 7, 5);
 
-    // 5. Roof Searchlight Mounting Fortified Pedestals on Slopes
-    ctx.fillStyle = '#1f2937';
-    ctx.fillRect(hx + 10, hy - 19, 10, 7);
-    ctx.fillRect(hx + hw - 20, hy - 19, 10, 7);
-    ctx.strokeStyle = '#4b5563';
+    // =========================================================================
+    // 6. ELEVATED WATCHTOWER / SNIPER TOWER (MENARA)
+    // =========================================================================
+    const twLeftX = towerX + 2;   // 626
+    const twRightX = towerX + towerW - 4; // 696
+    const twPostW = 6;
+
+    // Bolted structural steel base shoes anchored into Floor 2 header beam
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(twLeftX - 1, f2_y - 4, twPostW + 2, 5);
+    ctx.fillRect(twRightX - 1, f2_y - 4, twPostW + 2, 5);
+    ctx.fillStyle = '#718096';
+    ctx.fillRect(twLeftX, f2_y - 3, 2, 2);
+    ctx.fillRect(twLeftX + twPostW - 2, f2_y - 3, 2, 2);
+    ctx.fillRect(twRightX, f2_y - 3, 2, 2);
+    ctx.fillRect(twRightX + twPostW - 2, f2_y - 3, 2, 2);
+
+    // Heavy vertical timber corner posts (y: 66 to 104)
+    const postGrad = ctx.createLinearGradient(twLeftX, towerDeckY, twLeftX + twPostW, towerDeckY);
+    postGrad.addColorStop(0, '#54371f');
+    postGrad.addColorStop(0.5, '#3a2212');
+    postGrad.addColorStop(1, '#25150a');
+
+    ctx.fillStyle = postGrad;
+    ctx.fillRect(twLeftX, towerDeckY, twPostW, f2_y - towerDeckY);
+    ctx.fillRect(twRightX, towerDeckY, twPostW, f2_y - towerDeckY);
+    ctx.strokeStyle = '#1a0e06';
+    ctx.lineWidth = 1.0;
+    ctx.strokeRect(twLeftX, towerDeckY, twPostW, f2_y - towerDeckY);
+    ctx.strokeRect(twRightX, towerDeckY, twPostW, f2_y - towerDeckY);
+
+    // Diagonal Cross-Bracing Timber Trusses ('X' Bracing)
+    ctx.strokeStyle = '#4e2f17';
+    ctx.lineWidth = 4.0;
+    ctx.beginPath();
+    ctx.moveTo(twLeftX + 3, towerDeckY + 4); ctx.lineTo(twRightX + 3, f2_y - 4);
+    ctx.moveTo(twRightX + 3, towerDeckY + 4); ctx.lineTo(twLeftX + 3, f2_y - 4);
+    ctx.stroke();
+    ctx.strokeStyle = '#271408';
+    ctx.lineWidth = 1.0;
+    ctx.stroke();
+
+    // Central steel gusset connection plate & rivets
+    const gussetMidX = (twLeftX + twRightX + twPostW) * 0.5;
+    const gussetMidY = (towerDeckY + f2_y) * 0.5;
+    ctx.fillStyle = '#1e242c';
+    ctx.fillRect(gussetMidX - 5, gussetMidY - 5, 10, 10);
+    ctx.fillStyle = '#718096';
+    ctx.fillRect(gussetMidX - 3, gussetMidY - 3, 2, 2);
+    ctx.fillRect(gussetMidX + 1, gussetMidY - 3, 2, 2);
+    ctx.fillRect(gussetMidX - 3, gussetMidY + 1, 2, 2);
+    ctx.fillRect(gussetMidX + 1, gussetMidY + 1, 2, 2);
+
+    // Continuation of interior ladder up to watchtower platform deck hatch
+    ctx.fillStyle = '#3a200e';
+    ctx.fillRect(ladderX, towerDeckY + 2, 2.5, f2_y - towerDeckY - 4);
+    ctx.fillRect(ladderX + ladderW - 2.5, towerDeckY + 2, 2.5, f2_y - towerDeckY - 4);
+    ctx.fillStyle = '#94a3b8';
+    for (let ry = towerDeckY + 6; ry < f2_y - 4; ry += 9) {
+      ctx.fillRect(ladderX + 2.5, ry, ladderW - 5, 2.2);
+    }
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(ladderX + ladderW * 0.5, towerDeckY, 6, Math.PI, 0);
+    ctx.stroke();
+
+    // --- WATCHTOWER CROW'S NEST / SNIPER PLATFORM (y: 28 to 66) ---
+    const deckLeft = towerX - 2;   // 622
+    const deckRight = towerX + towerW + 2; // 702
+    const deckW = deckRight - deckLeft;
+
+    // Structural corbel support brackets underneath deck
+    ctx.fillStyle = '#3a2113';
+    ctx.beginPath();
+    ctx.moveTo(twLeftX, towerDeckY); ctx.lineTo(deckLeft + 4, towerDeckY); ctx.lineTo(twLeftX, towerDeckY + 8);
+    ctx.moveTo(twRightX + twPostW, towerDeckY); ctx.lineTo(deckRight - 4, towerDeckY); ctx.lineTo(twRightX + twPostW, towerDeckY + 8);
+    ctx.fill();
+
+    // Platform deck beam
+    const deckGrad = ctx.createLinearGradient(deckLeft, towerDeckY, deckLeft, towerDeckY + 5);
+    deckGrad.addColorStop(0, '#5a381e');
+    deckGrad.addColorStop(0.5, '#422814');
+    deckGrad.addColorStop(1, '#231409');
+    ctx.fillStyle = deckGrad;
+    ctx.fillRect(deckLeft, towerDeckY, deckW, 5);
+    ctx.strokeStyle = '#180d05';
+    ctx.lineWidth = 1.0;
+    ctx.strokeRect(deckLeft, towerDeckY, deckW, 5);
+
+    // 4 Corner canopy posts supporting watchtower roof (y: 26 to 66)
+    ctx.fillStyle = '#422814';
+    ctx.fillRect(deckLeft + 3, 26, 4, 40);
+    ctx.fillRect(deckRight - 7, 26, 4, 40);
+    ctx.strokeStyle = '#1a0e06';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(deckLeft + 3, 26, 4, 40);
+    ctx.strokeRect(deckRight - 7, 26, 4, 40);
+
+    // --- CHARACTER STAGING IN WATCHTOWER (STATIONED SNIPER SURVIVOR) ---
+    const sniperX = 662;
+    const sniperY = 56;
+    const sniperSurvivor = this.survivors.find(s => !s.isDead && (s.id === 'jackson' || s.id === 's6' || (s.role && s.role.toLowerCase().includes('sniper')) || (s.name && s.name.toLowerCase().includes('jackson'))));
+    const sniperAlive = !!sniperSurvivor;
+
+    if (sniperAlive) {
+      ctx.save();
+      const sniperBob = Math.sin(this.gameTime * 2.2) * 0.7;
+
+      // Tactical survivor callsign badge above helmet
+      const displayName = sniperSurvivor ? (sniperSurvivor.name.split(' ')[0] || 'Sniper') : 'Sniper';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      ctx.fillRect(sniperX - 18, sniperY - 21 + sniperBob, 36, 8);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(sniperX - 18, sniperY - 21 + sniperBob, 36, 8);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 6px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`🎯 ${displayName.toUpperCase()}`, sniperX, sniperY - 15 + sniperBob);
+
+      // Camo tactical uniform & chest harness
+      ctx.fillStyle = '#2d4a2d';
+      ctx.fillRect(sniperX - 7, sniperY - 5 + sniperBob, 14, 11);
+      ctx.strokeStyle = '#1b2e1b';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(sniperX - 6, sniperY - 5 + sniperBob); ctx.lineTo(sniperX + 3, sniperY + 6 + sniperBob);
+      ctx.stroke();
+      ctx.fillStyle = '#1e242c';
+      ctx.fillRect(sniperX - 5, sniperY + sniperBob, 4, 4);
+      ctx.fillRect(sniperX + 1, sniperY + sniperBob, 4, 4);
+
+      // Sniper Head with tactical boonie hat
+      ctx.fillStyle = '#f5d0a9';
+      ctx.beginPath();
+      ctx.arc(sniperX, sniperY - 9 + sniperBob, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1e331e';
+      ctx.beginPath();
+      ctx.ellipse(sniperX, sniperY - 11 + sniperBob, 6.5, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(sniperX - 4, sniperY - 14 + sniperBob, 8, 4);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(sniperX + 1, sniperY - 9 + sniperBob, 2, 1.2);
+
+      // High-Precision Scoped Sniper Rifle (.50 Cal / DMR)
+      ctx.save();
+      ctx.translate(sniperX + 2, sniperY - 4 + sniperBob);
+      const aimAngle = this.sniperAimAngle || (Math.PI * 0.15);
+      ctx.rotate(aimAngle);
+
+      ctx.fillStyle = '#1e242c';
+      ctx.fillRect(0, -2, 22, 3.5);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(20, -3, 3.5, 5.5);
+      ctx.fillStyle = '#3f352b';
+      ctx.fillRect(-8, -1.5, 9, 3);
+      ctx.fillStyle = '#1e242c';
+      ctx.fillRect(-8, 0, 4, 4);
+
+      // Telescopic Optical Scope
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(3, -5.5, 11, 3);
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(4, -3, 2, 1.5);
+      ctx.fillRect(10, -3, 2, 1.5);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(13, -5, 1.2, 2);
+
+      // Bipod legs
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(15, 1); ctx.lineTo(13, 6);
+      ctx.moveTo(15, 1); ctx.lineTo(17, 6);
+      ctx.stroke();
+
+      // Tactical Red Laser Targeting Sight (Night, dusk, or horde)
+      if (isNightOrDusk) {
+        ctx.strokeStyle = 'rgba(255, 35, 35, 0.55)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(260, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#ff2222';
+        ctx.fillRect(12, -1, 1.5, 1.5);
+      }
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    // --- FORTIFIED SANDBAG BREASTWORK PARAPET ---
+    const twBagW = 13;
+    const twBagH = 7.5;
+    for (let row = 0; row < 2; row++) {
+      const by = towerDeckY - 14 + row * (twBagH - 1.5);
+      const offset = row % 2 === 1 ? 4 : 0;
+      for (let bx = deckLeft + 2 + offset; bx < deckRight - 4; bx += twBagW - 2) {
+        if (bx > 644 && bx < 676 && row === 0) continue;
+
+        ctx.fillStyle = sandbagColors[(Math.floor(bx / twBagW) + row + 1) % sandbagColors.length];
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(bx, by, twBagW, twBagH, 2.5);
+        } else {
+          ctx.rect(bx, by, twBagW, twBagH);
+        }
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(40, 28, 16, 0.40)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(bx + 2, by + twBagH * 0.5); ctx.lineTo(bx + twBagW - 2, by + twBagH * 0.5);
+        ctx.stroke();
+      }
+    }
+
+    // Hardened Ballistic Armor Steel Shield with Horizontal Firing Embrasure Slot
+    const shieldX = 646;
+    const shieldY = 48;
+    const shieldW = 32;
+    const shieldH = 16;
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(shieldX, shieldY, shieldW, shieldH);
+    ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1.2;
-    ctx.strokeRect(hx + 10, hy - 19, 10, 7);
-    ctx.strokeRect(hx + hw - 20, hy - 19, 10, 7);
+    ctx.strokeRect(shieldX, shieldY, shieldW, shieldH);
 
-    // 6. Fortified Watchtower Window with Sill, Shadow, and Warm Ambient Light
-    const winX = hx + 18;
-    const winY = hy + 22;
-    const winW = 24;
-    const winH = 24;
+    // Ballistic shield armor rivets
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(shieldX + 2, shieldY + 2, 2, 2);
+    ctx.fillRect(shieldX + shieldW - 4, shieldY + 2, 2, 2);
+    ctx.fillRect(shieldX + 2, shieldY + shieldH - 4, 2, 2);
+    ctx.fillRect(shieldX + shieldW - 4, shieldY + shieldH - 4, 2, 2);
 
-    // Warm radial bloom spilling from window into dark forest during night / dusk
-    if (this.dayTime < 6.5 || this.dayTime >= 18.0) {
-      const winGlow = ctx.createRadialGradient(winX + winW * 0.5, winY + winH * 0.5, 4, winX + winW * 0.5, winY + winH * 0.5, 54);
-      winGlow.addColorStop(0, 'rgba(243, 156, 18, 0.62)');
-      winGlow.addColorStop(0.35, 'rgba(230, 126, 34, 0.28)');
-      winGlow.addColorStop(0.7, 'rgba(211, 84, 0, 0.08)');
-      winGlow.addColorStop(1, 'rgba(211, 84, 0, 0)');
-      ctx.fillStyle = winGlow;
-      ctx.beginPath();
-      ctx.arc(winX + winW * 0.5, winY + winH * 0.5, 54, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // Horizontal Sniper Firing Embrasure Slot
+    const embrasureX = shieldX + 5;
+    const embrasureY = shieldY + 4;
+    const embrasureW = 22;
+    const embrasureH = 6;
+    ctx.fillStyle = '#0a0d12';
+    ctx.fillRect(embrasureX, embrasureY, embrasureW, embrasureH);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(embrasureX, embrasureY, embrasureW, embrasureH);
 
-    // Heavy Timber Window Frame & Sill
-    ctx.fillStyle = '#2d180d';
-    ctx.fillRect(winX - 3, winY - 3, winW + 6, winH + 8);
-    // Projecting window sill
-    ctx.fillStyle = '#4a2815';
-    ctx.fillRect(winX - 5, winY + winH, winW + 10, 4);
-    // Sill drop shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.fillRect(winX - 4, winY + winH + 4, winW + 8, 3);
+    // --- WATCHTOWER HIP CANOPY ROOF (y: 18 to 28) ---
+    const canopyLeft = deckLeft - 4; // 618
+    const canopyRight = deckRight + 4; // 706
+    const canopyApexX = (canopyLeft + canopyRight) * 0.5; // 662
+    const canopyApexY = towerApexY; // 18
+    const canopyEavesY = 28;
 
-    // Glowing window pane glass
-    const glassGrad = ctx.createLinearGradient(winX, winY, winX, winY + winH);
-    glassGrad.addColorStop(0, '#f39c12');
-    glassGrad.addColorStop(0.6, '#f1c40f');
-    glassGrad.addColorStop(1, '#e67e22');
-    ctx.fillStyle = glassGrad;
-    ctx.fillRect(winX, winY, winW, winH);
-
-    // Subtle survivor lookout silhouette visible through window at night
-    if (this.dayTime < 6.5 || this.dayTime >= 18.0) {
-      ctx.fillStyle = 'rgba(28, 18, 12, 0.68)';
-      ctx.beginPath();
-      ctx.arc(winX + winW * 0.5, winY + 8, 4, 0, Math.PI * 2);
-      ctx.fillRect(winX + winW * 0.5 - 4.5, winY + 12, 9, 10);
-      ctx.fill();
-    }
-
-    // Security Iron Cross-Muntins dividing the glass into four panes
-    ctx.strokeStyle = '#2c1e14';
-    ctx.lineWidth = 2.0;
+    ctx.fillStyle = '#3a200e';
     ctx.beginPath();
-    ctx.moveTo(winX + winW * 0.5, winY);
-    ctx.lineTo(winX + winW * 0.5, winY + winH);
-    ctx.moveTo(winX, winY + winH * 0.5);
-    ctx.lineTo(winX + winW, winY + winH * 0.5);
+    ctx.moveTo(canopyLeft, canopyEavesY);
+    ctx.lineTo(canopyApexX, canopyApexY);
+    ctx.lineTo(canopyRight, canopyEavesY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Dark cedar shingles on canopy roof (3 tiers)
+    for (let c = 0; c < 3; c++) {
+      const t1 = c / 3;
+      const t2 = (c + 1) / 3;
+      const y1 = canopyEavesY - t1 * (canopyEavesY - canopyApexY);
+      const y2 = canopyEavesY - t2 * (canopyEavesY - canopyApexY);
+      const x1Left = canopyLeft + t1 * (canopyApexX - canopyLeft);
+      const x2Left = canopyLeft + t2 * (canopyApexX - canopyLeft);
+      const x1Right = canopyRight - t1 * (canopyRight - canopyApexX);
+      const x2Right = canopyRight - t2 * (canopyRight - canopyApexX);
+
+      ctx.fillStyle = shingleColors[c % shingleColors.length];
+      ctx.beginPath();
+      ctx.moveTo(x1Left, y1);
+      ctx.lineTo(x2Left, y2);
+      ctx.lineTo(x2Right, y2);
+      ctx.lineTo(x1Right, y1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#201006';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x1Left, y1); ctx.lineTo(x1Right, y1);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = '#201006';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(canopyLeft, canopyEavesY);
+    ctx.lineTo(canopyApexX, canopyApexY);
+    ctx.lineTo(canopyRight, canopyEavesY);
     ctx.stroke();
 
-    // 7. Fortified Entry Doorway & Barricades (Entrance to Bunker Hatch)
-    const doorX = hx + 58;
-    const doorY = hy + 26;
-    const doorW = 28;
-    const doorH = 54;
-
-    // Recessed heavy door timber architrave
-    ctx.fillStyle = '#22140b';
-    ctx.fillRect(doorX - 3, doorY - 3, doorW + 6, doorH + 3);
-
-    // Heavy reinforced steel shelter door panel
-    ctx.fillStyle = '#2c3e50';
-    ctx.fillRect(doorX, doorY, doorW, doorH);
-
-    // Steel door perimeter rivets
-    ctx.fillStyle = '#7f8c8d';
-    for (let ry = doorY + 4; ry < doorY + doorH; ry += 8) {
-      ctx.fillRect(doorX + 2, ry, 2, 2);
-      ctx.fillRect(doorX + doorW - 4, ry, 2, 2);
-    }
-
-    // Heavy mechanical vault handle
-    ctx.fillStyle = '#95a5a6';
-    ctx.fillRect(doorX + doorW - 7, doorY + doorH * 0.5 - 2, 5, 5);
-
-    // Stenciled warning text above door
-    ctx.fillStyle = '#f1c40f';
-    ctx.font = 'bold 6px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('SHELTER 04', doorX + doorW * 0.5, doorY - 5);
-
-    // Heavy Wooden Cross Barricade Planks (matching X barricade in sketch)
-    const plankW = 4.0;
-    ctx.strokeStyle = '#d35400';
-    ctx.lineWidth = plankW;
+    // Steel Lightning Rod & High-Frequency Radio Antenna Mast
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    // Diagonal 1
-    ctx.moveTo(doorX + 2, doorY + 6);
-    ctx.lineTo(doorX + doorW - 2, doorY + doorH - 6);
-    // Diagonal 2
-    ctx.moveTo(doorX + doorW - 2, doorY + 6);
-    ctx.lineTo(doorX + 2, doorY + doorH - 6);
-    // Horizontal reinforcing plank
-    ctx.moveTo(doorX - 2, doorY + doorH * 0.5);
-    ctx.lineTo(doorX + doorW + 2, doorY + doorH * 0.5);
+    ctx.moveTo(canopyApexX, canopyApexY);
+    ctx.lineTo(canopyApexX, canopyApexY - 10);
     ctx.stroke();
 
-    // Metallic reinforcement plates & carriage bolts at intersections
-    ctx.fillStyle = '#34495e';
-    ctx.fillRect(doorX + doorW * 0.5 - 4, doorY + doorH * 0.5 - 4, 8, 8);
-    ctx.fillStyle = '#e2e8f0';
-    ctx.fillRect(doorX + doorW * 0.5 - 1.5, doorY + doorH * 0.5 - 1.5, 3, 3);
+    // Pulsing red nocturnal warning beacon light at antenna tip
+    const beaconPulse = Math.sin(this.gameTime * 4.0) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(239, 68, 68, ${0.4 + 0.6 * beaconPulse})`;
+    ctx.beginPath();
+    ctx.arc(canopyApexX, canopyApexY - 10, 2.2, 0, Math.PI * 2);
+    ctx.fill();
 
-    // 8. House Barricade Health Bar with Armor Bracket Frame
+    // =========================================================================
+    // 7. ROOF SEARCHLIGHT MOUNTING PEDESTALS & GIMBAL HARDWARE
+    // =========================================================================
+    // Left Searchlight Mount (on 2nd-floor roofline pedestal)
+    const slLeftX = this.searchlights.left.x; // 586
+    const slLeftY = this.searchlights.left.y; // 94
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(slLeftX - 5, slLeftY + 1, 10, 6);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(slLeftX - 5, slLeftY + 1, 10, 6);
+
+    // Right Searchlight Mount (on Watchtower gimbal mount bracket)
+    const slRightX = this.searchlights.right.x; // 696
+    const slRightY = this.searchlights.right.y; // 46
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(slRightX - 5, slRightY + 1, 10, 6);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(slRightX - 5, slRightY + 1, 10, 6);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(slRightX - 7, slRightY + 4, 3, 3);
+
+    // =========================================================================
+    // 8. ADAPTED CABIN HEALTH BAR (ABOVE WATCHTOWER ROOFLINE)
+    // =========================================================================
     const hpRatio = Math.max(0, this.houseHp / this.houseMaxHp);
     const barW = 104;
-    const barH = 7;
-    const barX = hx + 13;
-    const barY = hy - 60;
+    const barH = 6;
+    const barX = hx + 13; // 588
+    const barY = 14;      // Above roofline
 
     ctx.fillStyle = 'rgba(10, 14, 20, 0.88)';
     ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
@@ -8743,7 +10890,227 @@ class GameEngine {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 8px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`CABIN: ${Math.round(this.houseHp)}/${this.houseMaxHp} HP`, hx + hw * 0.5, barY - 5);
+    ctx.fillText(`CABIN: ${Math.round(this.houseHp)}/${this.houseMaxHp} HP`, hx + hw * 0.5, barY - 4);
+  }
+
+  // Update watchtower sniper targeting, tracking, and autonomous precision shots
+  updateSniper(dt) {
+    const sniper = this.survivors ? this.survivors.find(s => !s.isDead && (s.id === 'jackson' || s.id === 's6' || (s.role && s.role.toLowerCase().includes('sniper')) || (s.name && s.name.toLowerCase().includes('jackson')))) : null;
+    if (!sniper) return;
+
+    const sniperX = 662;
+    const sniperY = 56;
+    const range = 680; // Enhanced: 680px BMG effective range
+
+    // ── Priority Target Selection ──────────────────────────────────────────
+    // Priority 1: Goliath Brutes (archetypeIndex 4 / type 'brute')
+    // Priority 2: Acid Spitters (archetypeIndex 3 / type 'spitter')
+    // Priority 3: Any zombie within 140px of an active refugee
+    // Priority 4: Nearest zombie in range
+    let target = null;
+
+    const inRange = (z) => z.hp > 0 && Math.hypot(z.x - sniperX, z.y - sniperY) <= range;
+
+    // P1: Brute
+    const brutes = this.zombies.filter(z => inRange(z) && (z.type === 'brute' || z.archetypeIndex === 4));
+    if (brutes.length > 0) target = brutes.reduce((a, b) => a.hp < b.hp ? a : b); // lowest HP brute first
+
+    // P2: Spitter
+    if (!target) {
+      const spitters = this.zombies.filter(z => inRange(z) && (z.type === 'spitter' || z.archetypeIndex === 3));
+      if (spitters.length > 0) target = spitters[0];
+    }
+
+    // P3: Refugee chasers
+    if (!target && this.refugees && this.refugees.length > 0) {
+      for (const ref of this.refugees) {
+        if (ref.isDead || ref.isRescued) continue;
+        const chaser = this.zombies.find(z => inRange(z) && Math.hypot(z.x - ref.x, z.y - ref.y) < 160);
+        if (chaser) { target = chaser; break; }
+      }
+    }
+
+    // P4: Nearest in range
+    if (!target) {
+      let minD = range;
+      for (const z of this.zombies) {
+        if (!inRange(z)) continue;
+        const d = Math.hypot(z.x - sniperX, z.y - sniperY);
+        if (d < minD) { minD = d; target = z; }
+      }
+    }
+
+    this.sniperTarget = target;
+
+    // ── Aim tracking ────────────────────────────────────────────────────────
+    if (target) {
+      const headY = target.y - (target.size || 14) * 0.7;
+      const desiredAngle = Math.atan2(headY - sniperY, target.x - sniperX);
+      const diff = ((desiredAngle - this.sniperAimAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      this.sniperAimAngle += diff * Math.min(dt * 4.5, 1);
+    } else {
+      // Perimeter sweep when idle
+      this.sniperAimAngle = Math.sin(this.gameTime * 0.75) * 0.28 + Math.PI * 0.15;
+    }
+
+    // ── Firing logic ────────────────────────────────────────────────────────
+    this.sniperTimer = (this.sniperTimer || 0) + dt;
+    const efficiency = sniper.getEfficiency ? sniper.getEfficiency() : 1.0;
+    const fireInterval = Math.max(1.2, 1.8 / efficiency); // 1.8s base, faster at higher level
+
+    if (target && this.sniperTimer >= fireInterval && this.resources.ammo >= 1) {
+      this.sniperTimer = 0;
+      this.resources.ammo = Math.max(0, this.resources.ammo - 1);
+
+      // ── Headshot calculation ────────────────────────────────────────────
+      const headshot = Math.random() < (0.35 + (sniper.level || 1) * 0.06); // 35-65% headshot chance
+      let baseDmg = 180 + Math.random() * 120; // 180–300 base
+      if (headshot) baseDmg *= 1.5 + Math.random() * 0.3; // 450+ crit
+      const damage = baseDmg * efficiency;
+
+      target.hp = Math.max(0, target.hp - damage);
+
+      // ── Supersonic tracer VFX ────────────────────────────────────────────
+      const muzzleX = sniperX + Math.cos(this.sniperAimAngle) * 26;
+      const muzzleY = sniperY + Math.sin(this.sniperAimAngle) * 26;
+      if (this.particles && this.particles.spawnSniperTracer) {
+        this.particles.spawnSniperTracer(muzzleX, muzzleY, target.x, target.y, headshot);
+      } else {
+        // Fallback sparks
+        if (this.particles) {
+          this.particles.spawnSparks(muzzleX, muzzleY, 14, headshot ? '#FFD700' : '#ffeaa7');
+          this.particles.spawnSmokePuff(muzzleX, muzzleY, 5, 'rgba(200,200,200,0.5)');
+        }
+      }
+
+      // ── Audio ─────────────────────────────────────────────────────────────
+      if (window.soundSystem && window.soundSystem.playSniperShot) {
+        window.soundSystem.playSniperShot();
+      } else if (window.soundSystem && window.soundSystem.playGunshot) {
+        window.soundSystem.playGunshot();
+      }
+
+      // ── Kill handling ─────────────────────────────────────────────────────
+      if (target.hp <= 0) {
+        if (target.die) target.die();
+        this.stats.zombiesKilled = (this.stats.zombiesKilled || 0) + 1;
+        sniper.addXP && sniper.addXP(headshot ? 80 : 60);
+      } else {
+        sniper.addXP && sniper.addXP(15);
+      }
+    }
+  }
+
+  // ── Autonomous Construction System ─────────────────────────────────────────
+  // Carlos (Builder) or any available engineer auto-builds Turrets 3 & 4
+  updateConstruction(dt) {
+    if (!this.constructionSites) return;
+    this.constructionTimer = (this.constructionTimer || 0) + dt;
+
+    for (const site of this.constructionSites) {
+      if (site.built) continue;
+
+      const hasMetal = this.resources.metal >= site.requiredMetal;
+      const hasGunpowder = this.resources.gunpowder >= site.requiredGunpowder;
+
+      // ── Announce blueprint when resources become available ────────────────
+      if (hasMetal && hasGunpowder && !site.announced) {
+        site.announced = true;
+        this.addNotification(`📐 Blueprint ready: ${site.label}! Resources sufficient — assigning builder...`, '#00D2FF', 4);
+      }
+
+      // ── Assign a builder survivor ─────────────────────────────────────────
+      if (hasMetal && hasGunpowder && !site.building) {
+        // Prefer Carlos (builder specialty), then any idle engineer
+        const builder = this.survivors.find(s =>
+          !s.isDead && !s.isBusy &&
+          (s.id === 'carlos' || s.specialty === 'builder' || s.role === 'engineer' || s.role === 'Engineer')
+        ) || this.survivors.find(s => !s.isDead && !s.isBusy && s.role !== 'sniper');
+
+        if (builder) {
+          site.building = true;
+          site.builder = builder;
+          site.progress = 0;
+          builder.isBusy = true;
+          builder.constructionTarget = site;
+          // Deduct resources
+          this.resources.metal = Math.max(0, this.resources.metal - site.requiredMetal);
+          this.resources.gunpowder = Math.max(0, this.resources.gunpowder - site.requiredGunpowder);
+          this.addNotification(`🔨 ${builder.name} is building ${site.label}!`, '#F9CA24', 3.5);
+        }
+      }
+
+      // ── Progress the build ───────────────────────────────────────────────
+      if (site.building && site.builder && !site.builder.isDead) {
+        const efficiency = site.builder.getEfficiency ? site.builder.getEfficiency() : 1.0;
+        site.progress += dt * efficiency * 8; // ~12 seconds at base rate
+
+        // Hammering sound & sparks at site while building
+        if (this.constructionTimer > 0.55) {
+          this.constructionTimer = 0;
+          if (window.soundSystem && window.soundSystem.playConstruction) {
+            window.soundSystem.playConstruction();
+          }
+          if (this.particles) {
+            this.particles.spawnSparks(site.x, site.y, 6, '#FFD700');
+            this.particles.spawnSparks(site.x, site.y, 4, '#FF8C00');
+          }
+        }
+
+        // ── Completion ─────────────────────────────────────────────────────
+        if (site.progress >= 100) {
+          site.progress = 100;
+          site.built = true;
+          site.building = false;
+          if (site.builder) {
+            site.builder.isBusy = false;
+            site.builder.constructionTarget = null;
+            site.builder.addXP && site.builder.addXP(120);
+          }
+          site.builder = null;
+
+          // Instantiate new Turret at roof position
+          site.turret = new Turret({
+            x: site.x, y: site.y,
+            side: site.id === 'turret3' ? 'left' : 'right',
+            label: site.label
+          });
+
+          // Completion VFX
+          if (this.particles) {
+            for (let i = 0; i < 20; i++) {
+              const a = (i / 20) * Math.PI * 2;
+              this.particles.particles.push({
+                x: site.x + Math.cos(a) * 18,
+                y: site.y + Math.sin(a) * 18,
+                vx: Math.cos(a) * 2.5,
+                vy: Math.sin(a) * 2.5 - 2,
+                life: 0.9, maxLife: 0.9,
+                size: 3,
+                color: '#FFD700',
+                gravity: 80,
+                type: 'spark'
+              });
+            }
+          }
+
+          // Completion chime
+          if (window.soundSystem) {
+            if (window.soundSystem.playElevatorDing) window.soundSystem.playElevatorDing();
+            setTimeout(() => {
+              if (window.soundSystem && window.soundSystem.playElevatorDing) window.soundSystem.playElevatorDing();
+            }, 220);
+          }
+
+          this.addNotification(`✅ ${site.label} ONLINE! +1 automated defense turret.`, '#00FF88', 5);
+        }
+      } else if (site.building && (!site.builder || site.builder.isDead)) {
+        // Builder died — suspend build
+        site.building = false;
+        site.builder = null;
+        this.addNotification(`⚠️ ${site.label} construction suspended — builder unavailable.`, '#FF4444', 3);
+      }
+    }
   }
 
   // Update roof searchlights tracking approaching zombies or sweeping dark forest
@@ -8951,8 +11318,9 @@ class GameEngine {
     const candidates = this.survivors.filter(s => !s.isDead && !s.ammoDeliveryTask && s.status !== 'resting');
     if (candidates.length === 0) return;
 
-    // Priority: Armory worker, then Airlock, then Workshop, then any worker
-    let runner = candidates.find(s => s.assignedRoom === 'armory');
+    // Priority: Samantha (Logistics Porter), then Armory worker, then Airlock, then Workshop, then any worker
+    let runner = candidates.find(s => (s.name || '').toLowerCase().includes('samantha') || (s.role || '').toLowerCase().includes('porter'));
+    if (!runner) runner = candidates.find(s => s.assignedRoom === 'armory');
     if (!runner) runner = candidates.find(s => s.assignedRoom === 'airlock');
     if (!runner) runner = candidates.find(s => s.assignedRoom === 'workshop');
     if (!runner) runner = candidates[0];
@@ -8961,6 +11329,328 @@ class GameEngine {
       runner.startAmmoDelivery(needyTurret);
       this.addNotification(`📦 Ammo low! ${runner.name} dispatched with crate for ${needyTurret.side.toUpperCase()} Turret!`, 'info');
     }
+  }
+
+  // Update Bunker Power Grid: Solar Roof Generation, Generator Mechanics, Battery Buffer, and Autonomous AI
+  updatePowerGrid(dt) {
+    // 1. Calculate Connected Bunker Load (all 16 rooms + sentry turrets)
+    let totalConnectedLoad = 0;
+    for (const room of this.rooms) {
+      totalConnectedLoad += room.powerCost;
+    }
+    // Turrets active sensor grid and power draw
+    totalConnectedLoad += 4;
+    this.bunkerPowerDemand = totalConnectedLoad;
+
+    // Converted to per-second consumption rate (scaled baseline bunker load)
+    const baseConsumptionRate = totalConnectedLoad * 0.15; // ~6.45 kW/s
+
+    // 2. Solar Photovoltaic Cabin Roof Array (+15 kW during daylight 06:00 to 18:00)
+    const isDaylight = this.dayTime >= (CONFIG.SOLAR_DAY_START || 6.0) && this.dayTime < (CONFIG.SOLAR_DAY_END || 18.0);
+    let solarKw = 0;
+    if (isDaylight) {
+      // Passive clean energy (+15 kW during daylight 06:00 to 18:00)
+      const dayProgress = (this.dayTime - 6.0) / 12.0;
+      const sunAngle = Math.sin(dayProgress * Math.PI); // 0 at dawn/dusk, 1.0 at noon
+      // Nominal avg 15.0 kW (+/- 1.5 kW curve)
+      solarKw = (CONFIG.SOLAR_POWER_OUTPUT || 15.0) * (0.90 + 0.20 * sunAngle);
+    }
+    this.solarOutput = solarKw;
+
+    // 3. Diesel Generator Production & High-Efficiency Fuel Burn
+    const genWorkers = this.survivors.filter(s => s.assignedRoom === 'generator' && !s.isDead);
+    const hasFuel = this.resources.fuel > 0.001;
+    let genKw = 0;
+
+    if (hasFuel && genWorkers.length > 0) {
+      let workerEffSum = 0;
+      for (const w of genWorkers) {
+        const eff = w.getEfficiency ? w.getEfficiency() : 1.0;
+        const nameL = (w.name || '').toLowerCase();
+        const roleL = (w.role || '').toLowerCase();
+        const isMechanic = w.specialty === 'generator' || w.skill === 'Mechanic' || nameL.includes('elena') || roleL.includes('engineer');
+        workerEffSum += eff * (isMechanic ? 1.30 : 1.0);
+      }
+
+      // Base generator yield: 30 kW nominal (up to 45 kW with skilled engineer)
+      const baseYield = CONFIG.GENERATOR_BASE_OUTPUT || 30.0;
+      genKw = baseYield * (0.75 + 0.25 * workerEffSum);
+
+      // High fuel efficiency: 0.04 fuel/s (750 kW·s of clean power per fuel unit)
+      const fuelCostRate = CONFIG.GENERATOR_FUEL_RATE || 0.04;
+      this.resources.fuel = Math.max(0, this.resources.fuel - fuelCostRate * dt);
+    }
+    this.generatorOutput = genKw;
+
+    // 4. Net Energy Balance & Battery Storage Buffer
+    const totalGenRate = solarKw + genKw;
+    const netFlow = totalGenRate - baseConsumptionRate;
+    this.netPowerFlow = netFlow;
+
+    if (netFlow >= 0) {
+      // Recharging 200 kW battery storage buffer
+      this.resources.power = Math.min(CONFIG.RESOURCE_CAPS.power, this.resources.power + netFlow * dt);
+    } else {
+      // Discharging battery buffer
+      this.resources.power = Math.max(0, this.resources.power + netFlow * dt);
+    }
+
+    // 5. Smart Autonomous Power Grid & Fueling AI (<40% threshold)
+    this.checkAutonomousPowerGrid(dt);
+  }
+
+  // Smart Autonomous Fueling & Generator Servicing AI
+  checkAutonomousPowerGrid(dt) {
+    const powerCap = CONFIG.RESOURCE_CAPS.power || 200;
+    const powerThreshold = powerCap * (CONFIG.POWER_AUTONOMOUS_THRESHOLD || 0.40); // 80 kW (40%)
+    const powerRestored = powerCap * (CONFIG.POWER_RESTORED_THRESHOLD || 0.85);   // 170 kW (85%)
+
+    // Check if any survivor is currently on an autonomous generator maintenance task
+    const activeMaintainer = this.survivors.find(s => s.generatorMaintenanceTask && !s.isDead);
+
+    // When battery is charged back to safe buffer (>= 85%), return maintainer to their original duty
+    if (activeMaintainer && this.resources.power >= powerRestored) {
+      const originalRoom = activeMaintainer.generatorMaintenanceTask.originalRoom || 'workshop';
+      activeMaintainer.generatorMaintenanceTask = null;
+      activeMaintainer.assignTo(originalRoom, false);
+      activeMaintainer.say(`⚡ Power grid secure (${Math.round(this.resources.power)} kW)! Returning to post.`, 2.5);
+      this.addNotification(`⚡ Power Grid Restored: Battery charged to ${Math.round(this.resources.power)} kW. ${activeMaintainer.name} returned to ${originalRoom.toUpperCase()}.`, 'success');
+      return;
+    }
+
+    // If power is healthy (>= 40%), no emergency dispatch needed
+    if (this.resources.power >= powerThreshold) {
+      return;
+    }
+
+    // Power is LOW (< 40%)!
+    // If generator already has an active, working survivor assigned and fuel is available, let them work
+    const workingGenCrew = this.survivors.filter(s => s.assignedRoom === 'generator' && !s.isDead && s.status === 'working');
+    if (workingGenCrew.length > 0 && this.resources.fuel > 0.5) {
+      return;
+    }
+
+    // Cooldown check (prevent repeated dispatch notifications)
+    if (this.gameTime - (this.lastAutonomousPowerDispatch || 0) < 6.0) {
+      return;
+    }
+
+    // Find best eligible candidate:
+    // Exclude dead, resting, or those currently on critical ammo runs
+    const candidates = this.survivors.filter(s => 
+      !s.isDead && 
+      !s.ammoDeliveryTask && 
+      s.assignedRoom !== 'generator' && 
+      s.fatigue < CONFIG.FATIGUE_REST_THRESHOLD
+    );
+
+    if (candidates.length === 0) return;
+
+    // Priority 1: Combat Engineer Elena Vance or mechanic specialist
+    let runner = candidates.find(s => {
+      const n = (s.name || '').toLowerCase();
+      const r = (s.role || '').toLowerCase();
+      const sk = (s.skill || '').toLowerCase();
+      return n.includes('elena') || r.includes('engineer') || r.includes('mechanic') || sk.includes('mechanic') || s.specialty === 'workshop';
+    });
+
+    // Priority 2: Non-vital station crew (Airlock, Quarters, Workshop)
+    if (!runner) {
+      runner = candidates.find(s => s.assignedRoom === 'airlock' || s.assignedRoom.startsWith('quarters') || s.assignedRoom === 'workshop');
+    }
+
+    // Priority 3: Any available survivor
+    if (!runner) {
+      runner = candidates[0];
+    }
+
+    if (runner) {
+      this.lastAutonomousPowerDispatch = this.gameTime;
+      runner.generatorMaintenanceTask = {
+        originalRoom: runner.assignedRoom,
+        dispatchedAt: this.gameTime
+      };
+      runner.assignTo('generator', true);
+      runner.say(`⚡ Power critical (${Math.round(this.resources.power)} kW)! Autonomous fueling & servicing generator!`, 3.0);
+
+      this.addNotification(`⚡ Autonomous Power Grid AI: Power < 40%! ${runner.name} dispatched to fuel & service Diesel Generator!`, 'warning');
+      this.particles.spawnSparks(runner.x, runner.y - 10, 16, '#00f3ff');
+
+      const genRoom = this.getRoom('generator');
+      if (genRoom) {
+        this.particles.addFloatingText("⚡ AUTONOMOUS POWER RESTORE", genRoom.x + genRoom.width / 2 - 40, genRoom.y + 25, '#f39c12');
+      }
+    }
+  }
+
+  // Render High-Efficiency Cabin Roof Photovoltaic Solar Array (+15 kW Daylight Clean Energy)
+  drawSolarRoofArray(ctx, hx, hy, apexX, apexY) {
+    const isDaylight = this.dayTime >= (CONFIG.SOLAR_DAY_START || 6.0) && this.dayTime < (CONFIG.SOLAR_DAY_END || 18.0);
+    const now = performance.now();
+
+    ctx.save();
+
+    // 1. Structural Mounting Brackets on Left Roof Pitch
+    // Left roof slope extends from (hx - 14, hy) [561, 160] to (apexX, apexY) [640, 112]
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    // Lower structural mounting rail
+    ctx.moveTo(hx + 14, hy - 18);
+    ctx.lineTo(hx + 56, hy - 43);
+    // Upper structural mounting rail
+    ctx.moveTo(hx + 17, hy - 25);
+    ctx.lineTo(hx + 58, hy - 49);
+    ctx.stroke();
+
+    // Fastener stanchions connecting rails to rafters
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(hx + 18, hy - 20, 3, 5);
+    ctx.fillRect(hx + 36, hy - 32, 3, 5);
+    ctx.fillRect(hx + 52, hy - 44, 3, 5);
+
+    // 2. Dual Angled Solar Photovoltaic Modules
+    // Module 1 (Lower Left)
+    const p1 = [
+      { x: hx + 16, y: hy - 20 },
+      { x: hx + 34, y: hy - 31 },
+      { x: hx + 36, y: hy - 44 },
+      { x: hx + 18, y: hy - 33 }
+    ];
+
+    // Module 2 (Upper Right towards apex)
+    const p2 = [
+      { x: hx + 37, y: hy - 33 },
+      { x: hx + 55, y: hy - 44 },
+      { x: hx + 57, y: hy - 57 },
+      { x: hx + 39, y: hy - 46 }
+    ];
+
+    const panels = [p1, p2];
+
+    for (let i = 0; i < panels.length; i++) {
+      const p = panels[i];
+
+      // Outer Aluminum Anodized Bevel Frame
+      ctx.beginPath();
+      ctx.moveTo(p[0].x, p[0].y);
+      ctx.lineTo(p[1].x, p[1].y);
+      ctx.lineTo(p[2].x, p[2].y);
+      ctx.lineTo(p[3].x, p[3].y);
+      ctx.closePath();
+      ctx.fillStyle = '#1e293b';
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // Deep Monocrystalline Silicon Photovoltaic Wafer Cells
+      ctx.beginPath();
+      ctx.moveTo(p[0].x + 1.5, p[0].y - 1);
+      ctx.lineTo(p[1].x - 1.5, p[1].y - 1);
+      ctx.lineTo(p[2].x - 1.5, p[2].y + 1);
+      ctx.lineTo(p[3].x + 1.5, p[3].y + 1);
+      ctx.closePath();
+
+      // Midnight Navy / Indigo Silicon Gradient
+      const grad = ctx.createLinearGradient(p[0].x, p[0].y, p[2].x, p[2].y);
+      if (isDaylight) {
+        grad.addColorStop(0, '#0f274a');
+        grad.addColorStop(0.5, '#163863');
+        grad.addColorStop(1, '#0b1d38');
+      } else {
+        grad.addColorStop(0, '#091322');
+        grad.addColorStop(1, '#050b14');
+      }
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Fine Silver Conductor Busbars & String Ribbons
+      ctx.strokeStyle = isDaylight ? 'rgba(56, 189, 248, 0.45)' : 'rgba(56, 189, 248, 0.15)';
+      ctx.lineWidth = 0.8;
+      // Longitudinal string ribbon
+      ctx.beginPath();
+      ctx.moveTo((p[0].x + p[3].x) * 0.5, (p[0].y + p[3].y) * 0.5);
+      ctx.lineTo((p[1].x + p[2].x) * 0.5, (p[1].y + p[2].y) * 0.5);
+      ctx.stroke();
+
+      // Transverse grid conductors
+      for (let g = 1; g <= 2; g++) {
+        const t = g / 3;
+        const gx1 = p[0].x + t * (p[1].x - p[0].x);
+        const gy1 = p[0].y + t * (p[1].y - p[0].y);
+        const gx2 = p[3].x + t * (p[2].x - p[3].x);
+        const gy2 = p[3].y + t * (p[2].y - p[3].y);
+        ctx.beginPath();
+        ctx.moveTo(gx1, gy1);
+        ctx.lineTo(gx2, gy2);
+        ctx.stroke();
+      }
+
+      // Specular Anti-Reflective Glass Sheen
+      if (isDaylight) {
+        const sheen = ctx.createLinearGradient(p[3].x, p[3].y, p[1].x, p[1].y);
+        sheen.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
+        sheen.addColorStop(0.35, 'rgba(125, 211, 252, 0.18)');
+        sheen.addColorStop(0.7, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = sheen;
+        ctx.beginPath();
+        ctx.moveTo(p[0].x + 1.5, p[0].y - 1);
+        ctx.lineTo(p[1].x - 1.5, p[1].y - 1);
+        ctx.lineTo(p[2].x - 1.5, p[2].y + 1);
+        ctx.lineTo(p[3].x + 1.5, p[3].y + 1);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // 3. Micro-Inverter Junction Box & High-Voltage DC Conduit
+    const jBoxX = hx + 13;
+    const jBoxY = hy - 17;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(jBoxX, jBoxY, 5, 5);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(jBoxX, jBoxY, 5, 5);
+
+    // High-voltage flexible armored conduit running to cabin eaves
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(jBoxX + 2, jBoxY + 5);
+    ctx.lineTo(jBoxX + 2, hy - 4);
+    ctx.lineTo(hx + 8, hy);
+    ctx.stroke();
+
+    // 4. Micro-Inverter Status LED Indicator
+    if (isDaylight) {
+      // Pulsing bright emerald green LED when generating +15 kW
+      const pulse = 0.75 + 0.25 * Math.sin(now / 150);
+      ctx.fillStyle = '#10b981';
+      ctx.shadowColor = '#10b981';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(jBoxX + 2.5, jBoxY + 2.5, 1.6 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Sun glint sparkle on high noon
+      if (this.dayTime >= 10.5 && this.dayTime <= 13.5) {
+        const glintAlpha = 0.4 + 0.6 * Math.sin(now / 180);
+        ctx.fillStyle = `rgba(255, 255, 255, ${glintAlpha})`;
+        ctx.beginPath();
+        ctx.arc(hx + 48, hy - 47, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // Standby dark slate LED at night
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.arc(jBoxX + 2.5, jBoxY + 2.5, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   // Toggle Manual Aim Mode
@@ -9076,10 +11766,15 @@ class UIManager {
     this.setVal('res-gunpowder', Math.floor(res.gunpowder), CONFIG.RESOURCE_CAPS.gunpowder);
     this.setVal('res-fuel', Math.floor(res.fuel), CONFIG.RESOURCE_CAPS.fuel);
 
-    // Population
+    // Population & Living Capacity
     const aliveCount = engine.survivors.filter(s => !s.isDead).length;
+    const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
     const popEl = document.getElementById('hud-pop');
-    if (popEl) popEl.textContent = `${aliveCount} Alive`;
+    if (popEl) {
+      popEl.textContent = `Pop: ${aliveCount}/${maxPop}`;
+      popEl.title = `Bunker Inhabitants: ${aliveCount} / Maximum Bunk Capacity: ${maxPop} (Upgrade Living Quarters to expand)`;
+      popEl.style.color = aliveCount >= maxPop ? '#f39c12' : '#55ffaa';
+    }
 
     // Threat Radar
     const radarEl = document.getElementById('hud-radar');
@@ -9097,6 +11792,12 @@ class UIManager {
     // Turret quick HUD bars
     this.updateTurretWidget('left-turret-hud', engine.leftTurret);
     this.updateTurretWidget('right-turret-hud', engine.rightTurret);
+
+    // Sniper Widget
+    this.updateSniperWidget(engine);
+
+    // Construction site widgets for Turrets 3 & 4
+    this.updateConstructionWidgets(engine);
   }
 
   setVal(id, current, max) {
@@ -9106,6 +11807,17 @@ class UIManager {
       // Highlight low ammo
       if (id === 'res-ammo') {
         el.style.color = current < 50 ? '#ff4d4d' : current < 150 ? '#ffaa00' : '#ffeaa7';
+      }
+      // Highlight power level & grid telemetry tooltip
+      if (id === 'res-power') {
+        el.style.color = current < 40 ? '#ff4d4d' : current < 80 ? '#ffaa00' : '#00f3ff';
+        const engine = window.gameEngine;
+        if (engine && el.parentElement) {
+          const solar = Math.round(engine.solarOutput || 0);
+          const gen = Math.round(engine.generatorOutput || 0);
+          const net = Math.round(engine.netPowerFlow || 0);
+          el.parentElement.title = `Power Grid: ${current}/${max} kW (Solar: +${solar} kW, Gen: +${gen} kW, Net: ${(net >= 0 ? '+' : '') + net} kW/s)`;
+        }
       }
     }
   }
@@ -9171,6 +11883,14 @@ class UIManager {
         <div class="modal-info-box">
           <strong>Production Yield:</strong> ${room.produces.toUpperCase()} (+${room.baseRate * room.level}/s with workers)
           ${room.cost ? `<br><span class="text-dim">Consumes: ${Object.entries(room.cost).map(([k, v]) => `${k}: ${v}/s`).join(', ')}</span>` : ''}
+        </div>
+      `;
+    } else if (room.id === 'quarters_1' || room.id === 'quarters_2') {
+      const roomCapacity = 4 + (room.level - 1) * (CONFIG.POPULATION_PER_QUARTERS_TIER || 2);
+      prodHtml = `
+        <div class="modal-info-box" style="border-left: 3px solid #00cec9;">
+          <strong>🏠 Living Quarters Capacity:</strong> ${roomCapacity} Bunks
+          <br><span class="text-dim">Total Bunker Capacity: ${engine.getMaxPopulation()} Inhabitants. Upgrading adds +${CONFIG.POPULATION_PER_QUARTERS_TIER || 2} bunks!</span>
         </div>
       `;
     }
@@ -9317,12 +12037,20 @@ class UIManager {
       let statusBadge = '<span style="color: #2ecc71; font-weight: bold;">⚙️ Working</span>';
       if (s.ammoDeliveryTask) {
         statusBadge = `<span class="badge-carrier">📦 RUNNER: ${s.ammoDeliveryTask.turret.side.toUpperCase()} TURRET</span>`;
+      } else if (s.builderRepairTask) {
+        statusBadge = `<span style="color: #e67e22; font-weight: bold;">🔧 Repairing Defenses</span>`;
+      } else if (s.status === 'emergency_power') {
+        statusBadge = `<span style="color: #00cec9; font-weight: bold;">⚡ Generator Overclock</span>`;
+      } else if (s.needState === 'seeking_medical') {
+        statusBadge = `<span style="color: #ff7675; font-weight: bold;">🩹 In Medical Clinic</span>`;
       } else if (s.needState === 'seeking_food') {
         statusBadge = '<span style="color: #f39c12; font-weight: bold;">🍲 Eating at Mess Hall</span>';
       } else if (s.needState === 'seeking_water') {
         statusBadge = '<span style="color: #3498db; font-weight: bold;">💧 Drinking at Filtration</span>';
       } else if (s.needState === 'resting') {
         statusBadge = '<span style="color: #a29bfe; font-weight: bold;">💤 Resting in Quarters</span>';
+      } else if (s.role && s.role.toLowerCase().includes('sniper')) {
+        statusBadge = '<span style="color: #2ed573; font-weight: bold;">🎯 Watchtower Overwatch</span>';
       }
 
       return `
@@ -9358,9 +12086,12 @@ class UIManager {
       `;
     }).join('');
 
+    const aliveCount = engine.survivors.filter(s => !s.isDead).length;
+    const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
+
     this.showModal(`
       <div class="modal-header">
-        <h2>👥 BUNKER INHABITANTS ROSTER</h2>
+        <h2>👥 BUNKER INHABITANTS ROSTER (${aliveCount}/${maxPop} Bunks)</h2>
         <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
       </div>
       <p class="modal-desc">Monitor health, needs, and work stations of your survivors to keep the bunker thriving.</p>
@@ -9491,20 +12222,31 @@ class UIManager {
         engine.resources.gunpowder = Math.min(CONFIG.RESOURCE_CAPS.gunpowder, engine.resources.gunpowder + powderFound);
         
         // Chance to rescue survivor
-        if (Math.random() < 0.6 && engine.survivors.length < 12) {
-          const names = ['Jackson Cole', 'Maya Lin', 'Carlos Ortiz', 'Samantha Bell', 'Lucas Reed'];
-          const randName = names[Math.floor(Math.random() * names.length)];
-          const newSurvivor = new Survivor({
-            id: 's_' + Date.now(),
-            name: randName,
-            role: 'Outpost Survivor',
-            skill: 'Generalist',
-            avatar: '🧑‍🚀',
-            specialty: 'armory',
-            assignedRoom: 'armory'
-          });
-          engine.survivors.push(newSurvivor);
-          engine.addNotification(`🎉 Rescued a lost survivor: ${randName}!`, "success");
+        const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
+        const aliveSurvivors = engine.survivors.filter(s => !s.isDead).length;
+        if (Math.random() < 0.6 && aliveSurvivors < maxPop) {
+          const existingNames = engine.survivors.map(s => s.name.toLowerCase());
+          let archetype = (CONFIG.UNIQUE_ARCHETYPES || []).find(a => !existingNames.includes(a.name.toLowerCase()));
+          if (!archetype) {
+            archetype = (CONFIG.EXTRA_ARCHETYPES || []).find(e => !existingNames.includes(e.name.toLowerCase()));
+          }
+          if (archetype) {
+            const newSurvivor = new Survivor({
+              id: 's_' + Date.now(),
+              name: archetype.name,
+              role: archetype.role,
+              skill: archetype.skill,
+              avatar: archetype.avatar,
+              specialty: archetype.specialty,
+              assignedRoom: archetype.assignedRoom || archetype.specialty,
+              speed: archetype.speed || 52
+            });
+            engine.survivors.push(newSurvivor);
+            engine.addNotification(`🎉 Expedition rescued ${archetype.name} (${archetype.role})! Joined the bunker crew!`, "success");
+            if (window.soundSystem) window.soundSystem.playBeep(true);
+          } else {
+            engine.addNotification(`Expedition returned with ${ammoFound} Ammo, ${metalFound} Metal, and ${powderFound} Gunpowder!`, "success");
+          }
         } else {
           engine.addNotification(`Expedition returned with ${ammoFound} Ammo, ${metalFound} Metal, and ${powderFound} Gunpowder!`, "success");
         }
@@ -9524,7 +12266,7 @@ class UIManager {
         <ul>
           <li><strong>Ammunition Supply:</strong> Turrets auto-fire at zombies, but consume ammo rapidly! Assign survivors to the <strong>Munitions Armory</strong> to craft ammo from Metal and Gunpowder.</li>
           <li><strong>Turret Reloads:</strong> Click the RELOAD button on the Left/Right turrets or research the Automated Ammo Conduit in the Tech Lab.</li>
-          <li><strong>Power Grid:</strong> The <strong>Diesel Generator</strong> powers turrets, lights, and room machinery. Keep it stocked with fuel refined from the Bio-Refinery.</li>
+          <li><strong>Power Grid:</strong> Powered by the <strong>Cabin Roof Solar Array</strong> (+15 kW clean energy during daylight 06:00-18:00) and the <strong>Diesel Generator</strong> (high-efficiency backup with a 200 kW battery buffer). If power falls below 40%, the autonomous AI dispatches an engineer to fuel and service the generator!</li>
           <li><strong>Inhabitant Sustenance:</strong> Survivors need Food from Hydroponics and Water from Filtration. Resting them in Living Quarters restores stamina.</li>
           <li><strong>Zombie Hordes:</strong> The radar displays when the next horde approaches. Brace your defenses and ensure turrets are fully loaded!</li>
         </ul>
@@ -9567,9 +12309,78 @@ class UIManager {
       this.activeModal = false;
     }
   }
+
+  // Sniper status mini-widget (injected into DOM element 'sniper-hud' if exists)
+  updateSniperWidget(engine) {
+    const el = document.getElementById('sniper-hud');
+    if (!el) return;
+    const sniper = engine.survivors ? engine.survivors.find(s =>
+      !s.isDead && (s.id === 'jackson' || (s.role && s.role.toLowerCase().includes('sniper')))
+    ) : null;
+
+    if (!sniper) {
+      el.innerHTML = `<div class="sniper-hud-row dim">🎯 WATCHTOWER — <em>No Sniper</em></div>`;
+      return;
+    }
+
+    const target = engine.sniperTarget;
+    const targetLabel = target ? `${target.type || 'Zombie'} [HP:${Math.ceil(target.hp)}]` : 'Scanning...';
+    const cooldownPct = Math.min(100, ((engine.sniperTimer || 0) / 1.8) * 100);
+
+    el.innerHTML = `
+      <div class="sniper-hud-header">🎯 WATCHTOWER — <strong>${sniper.name.split(' ')[0]}</strong> (Lvl ${sniper.level || 1})</div>
+      <div class="sniper-hud-row">Target: <span class="${target ? 'text-danger' : 'text-muted'}">${targetLabel}</span></div>
+      <div class="sniper-hud-row">
+        <span class="hud-label">⏱ COOLDOWN:</span>
+        <div class="progress-bar" style="width:80px;display:inline-block;vertical-align:middle;">
+          <div class="progress-fill bar-amber" style="width:${cooldownPct}%"></div>
+        </div>
+      </div>
+      <div class="sniper-hud-row">📦 Ammo: <span style="color:#ffd700">${Math.floor(engine.resources.ammo)}</span> | XP: ${sniper.xp || 0}</div>
+    `;
+  }
+
+  // Construction progress widgets for Turrets 3 & 4
+  updateConstructionWidgets(engine) {
+    if (!engine.constructionSites) return;
+
+    for (const site of engine.constructionSites) {
+      const el = document.getElementById(`${site.id}-hud`);
+      if (!el) continue;
+
+      if (site.built) {
+        el.innerHTML = `<div class="turret-hud-header" style="color:#00FF88">✅ ${site.label} — ONLINE</div>`;
+        if (site.turret) {
+          el.innerHTML += `<div class="sniper-hud-row">Tier: T${site.turret.tierIndex + 1} | Ammo: ${site.turret.ammo}/${site.turret.stats.maxAmmo}</div>`;
+        }
+        continue;
+      }
+
+      const hasMetal = engine.resources.metal >= site.requiredMetal;
+      const hasGP = engine.resources.gunpowder >= site.requiredGunpowder;
+      const canBuild = hasMetal && hasGP && !site.building;
+
+      el.innerHTML = `
+        <div class="turret-hud-header" style="color:${site.building ? '#F9CA24' : '#00D2FF'}">
+          📐 ${site.label} — ${site.building ? `BUILDING ${Math.floor(site.progress)}%` : 'BLUEPRINT'}
+        </div>
+        <div class="sniper-hud-row" style="color:${hasMetal ? '#00FF88' : '#FF4444'}">⚙️ Metal: ${Math.floor(engine.resources.metal)}/${site.requiredMetal}</div>
+        <div class="sniper-hud-row" style="color:${hasGP ? '#00FF88' : '#FF4444'}">💥 Powder: ${Math.floor(engine.resources.gunpowder)}/${site.requiredGunpowder}</div>
+        ${site.building ? `
+          <div class="sniper-hud-row">🔨 Builder: ${site.builder ? site.builder.name : 'Suspended'}</div>
+          <div class="progress-bar"><div class="progress-fill bar-amber" style="width:${site.progress}%"></div></div>
+        ` : canBuild ? `
+          <div class="sniper-hud-row" style="color:#00FF88">✅ Resources Ready — Auto-building!</div>
+        ` : `
+          <div class="sniper-hud-row text-dim">Gather more resources...</div>
+        `}
+      `;
+    }
+  }
 }
 
 window.UIManager = UIManager;
+
 
 
 // --- main.js ---

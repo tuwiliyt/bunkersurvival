@@ -302,6 +302,29 @@ class ParticleSystem {
     });
   }
 
+  // Heavy .50 Caliber AP Brass Casing Ejection from Watchtower
+  spawnSniperCasing(x, y) {
+    this.particles.push({
+      x, y,
+      vx: -1.6 - Math.random() * 2.4,
+      vy: -2.8 - Math.random() * 2.2,
+      angle: Math.random() * Math.PI * 2,
+      vRot: -14 - Math.random() * 24,
+      width: 7.2,
+      height: 2.8,
+      color: '#e5bf3b',
+      bounces: 0,
+      maxBounces: 3,
+      settled: false,
+      gravity: 15.0,
+      floorY: 65, // Watchtower wooden platform deck
+      life: 6.0,
+      maxLife: 6.0,
+      isCasing: true,
+      type: 'brass_casing'
+    });
+  }
+
   // Coolant steam discharge for plasma weaponry
   spawnCoolantPuff(x, y, dir = -1) {
     for (let i = 0; i < 3; i++) {
@@ -427,6 +450,17 @@ class ParticleSystem {
     });
   }
 
+  // Supersonic .50 Caliber Glowing Gold Sniper Tracer Beam
+  addSniperTracer(x1, y1, x2, y2) {
+    this.tracers.push({
+      x1, y1, x2, y2,
+      life: 0.22,
+      maxLife: 0.22,
+      color: '#ffd700',
+      isSniper: true
+    });
+  }
+
   // Floating notification text (e.g. +ammo, damage, CRIT)
   addFloatingText(text, x, y, color = '#ffffff') {
     this.floatingTexts.push({
@@ -507,9 +541,10 @@ class ParticleSystem {
           p.y += p.vy * dt * 40;
           p.angle += p.vRot * dt;
 
-          // Ground bounce collision
-          if (p.y >= CONFIG.SURFACE_Y - 2) {
-            p.y = CONFIG.SURFACE_Y - 2;
+          // Ground or watchtower deck bounce collision
+          const floorY = p.floorY !== undefined ? p.floorY : (CONFIG.SURFACE_Y - 2);
+          if (p.y >= floorY) {
+            p.y = floorY;
             if (p.bounces < p.maxBounces && Math.abs(p.vy) > 0.8) {
               p.vy = -Math.abs(p.vy) * (0.38 + Math.random() * 0.16);
               p.vx *= 0.62;
@@ -1167,6 +1202,53 @@ class ParticleSystem {
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
     }
+  }
+
+  // Supersonic gold tracer — .50 BMG bolt-action
+  spawnSniperTracer(x1, y1, x2, y2, headshot) {
+    // Tracer line segments (fading)
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.floor(len / 22);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / Math.max(steps, 1);
+      this.particles.push({
+        x: x1 + dx * t + (Math.random() - 0.5) * 1.4,
+        y: y1 + dy * t + (Math.random() - 0.5) * 1.4,
+        vx: dx * 0.015 + (Math.random() - 0.5) * 0.5,
+        vy: dy * 0.015 + (Math.random() - 0.5) * 0.5,
+        life: 0.22 - t * 0.12,
+        maxLife: 0.22,
+        size: headshot ? 2.8 : 1.8,
+        color: headshot ? '#FFD700' : '#FFC04A',
+        gravity: 0,
+        type: 'tracer'
+      });
+    }
+    // Muzzle flash at sniper origin
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 2.5 + 1;
+      this.particles.push({
+        x: x1, y: y1,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+        life: 0.08, maxLife: 0.08,
+        size: Math.random() * 3 + 1.5,
+        color: '#FFFBE0', gravity: 0, type: 'muzzle'
+      });
+    }
+    // Spent casing ejection (right-side eject)
+    this.spawnCasing(x1 + 4, y1, 1);
+    // Floating damage text
+    const label = headshot ? `HEADSHOT! -${Math.floor(Math.random()*140+310)}` : `-${Math.floor(Math.random()*120+180)}`;
+    const col = headshot ? '#FFD700' : '#FF6633';
+    this.addFloatingText(x2, y2 - 20, label, col);
+  }
+
+  // Floating kill/damage text
+  addFloatingText(x, y, text, color) {
+    if (!this.floatingTexts) this.floatingTexts = [];
+    this.floatingTexts.push({ x, y, text, color, life: 1.2, maxLife: 1.2 });
   }
 }
 

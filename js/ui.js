@@ -27,10 +27,15 @@ class UIManager {
     this.setVal('res-gunpowder', Math.floor(res.gunpowder), CONFIG.RESOURCE_CAPS.gunpowder);
     this.setVal('res-fuel', Math.floor(res.fuel), CONFIG.RESOURCE_CAPS.fuel);
 
-    // Population
+    // Population & Living Capacity
     const aliveCount = engine.survivors.filter(s => !s.isDead).length;
+    const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
     const popEl = document.getElementById('hud-pop');
-    if (popEl) popEl.textContent = `${aliveCount} Alive`;
+    if (popEl) {
+      popEl.textContent = `Pop: ${aliveCount}/${maxPop}`;
+      popEl.title = `Bunker Inhabitants: ${aliveCount} / Maximum Bunk Capacity: ${maxPop} (Upgrade Living Quarters to expand)`;
+      popEl.style.color = aliveCount >= maxPop ? '#f39c12' : '#55ffaa';
+    }
 
     // Threat Radar
     const radarEl = document.getElementById('hud-radar');
@@ -48,6 +53,12 @@ class UIManager {
     // Turret quick HUD bars
     this.updateTurretWidget('left-turret-hud', engine.leftTurret);
     this.updateTurretWidget('right-turret-hud', engine.rightTurret);
+
+    // Sniper Widget
+    this.updateSniperWidget(engine);
+
+    // Construction site widgets for Turrets 3 & 4
+    this.updateConstructionWidgets(engine);
   }
 
   setVal(id, current, max) {
@@ -57,6 +68,17 @@ class UIManager {
       // Highlight low ammo
       if (id === 'res-ammo') {
         el.style.color = current < 50 ? '#ff4d4d' : current < 150 ? '#ffaa00' : '#ffeaa7';
+      }
+      // Highlight power level & grid telemetry tooltip
+      if (id === 'res-power') {
+        el.style.color = current < 40 ? '#ff4d4d' : current < 80 ? '#ffaa00' : '#00f3ff';
+        const engine = window.gameEngine;
+        if (engine && el.parentElement) {
+          const solar = Math.round(engine.solarOutput || 0);
+          const gen = Math.round(engine.generatorOutput || 0);
+          const net = Math.round(engine.netPowerFlow || 0);
+          el.parentElement.title = `Power Grid: ${current}/${max} kW (Solar: +${solar} kW, Gen: +${gen} kW, Net: ${(net >= 0 ? '+' : '') + net} kW/s)`;
+        }
       }
     }
   }
@@ -122,6 +144,14 @@ class UIManager {
         <div class="modal-info-box">
           <strong>Production Yield:</strong> ${room.produces.toUpperCase()} (+${room.baseRate * room.level}/s with workers)
           ${room.cost ? `<br><span class="text-dim">Consumes: ${Object.entries(room.cost).map(([k, v]) => `${k}: ${v}/s`).join(', ')}</span>` : ''}
+        </div>
+      `;
+    } else if (room.id === 'quarters_1' || room.id === 'quarters_2') {
+      const roomCapacity = 4 + (room.level - 1) * (CONFIG.POPULATION_PER_QUARTERS_TIER || 2);
+      prodHtml = `
+        <div class="modal-info-box" style="border-left: 3px solid #00cec9;">
+          <strong>🏠 Living Quarters Capacity:</strong> ${roomCapacity} Bunks
+          <br><span class="text-dim">Total Bunker Capacity: ${engine.getMaxPopulation()} Inhabitants. Upgrading adds +${CONFIG.POPULATION_PER_QUARTERS_TIER || 2} bunks!</span>
         </div>
       `;
     }
@@ -268,12 +298,20 @@ class UIManager {
       let statusBadge = '<span style="color: #2ecc71; font-weight: bold;">⚙️ Working</span>';
       if (s.ammoDeliveryTask) {
         statusBadge = `<span class="badge-carrier">📦 RUNNER: ${s.ammoDeliveryTask.turret.side.toUpperCase()} TURRET</span>`;
+      } else if (s.builderRepairTask) {
+        statusBadge = `<span style="color: #e67e22; font-weight: bold;">🔧 Repairing Defenses</span>`;
+      } else if (s.status === 'emergency_power') {
+        statusBadge = `<span style="color: #00cec9; font-weight: bold;">⚡ Generator Overclock</span>`;
+      } else if (s.needState === 'seeking_medical') {
+        statusBadge = `<span style="color: #ff7675; font-weight: bold;">🩹 In Medical Clinic</span>`;
       } else if (s.needState === 'seeking_food') {
         statusBadge = '<span style="color: #f39c12; font-weight: bold;">🍲 Eating at Mess Hall</span>';
       } else if (s.needState === 'seeking_water') {
         statusBadge = '<span style="color: #3498db; font-weight: bold;">💧 Drinking at Filtration</span>';
       } else if (s.needState === 'resting') {
         statusBadge = '<span style="color: #a29bfe; font-weight: bold;">💤 Resting in Quarters</span>';
+      } else if (s.role && s.role.toLowerCase().includes('sniper')) {
+        statusBadge = '<span style="color: #2ed573; font-weight: bold;">🎯 Watchtower Overwatch</span>';
       }
 
       return `
@@ -309,9 +347,12 @@ class UIManager {
       `;
     }).join('');
 
+    const aliveCount = engine.survivors.filter(s => !s.isDead).length;
+    const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
+
     this.showModal(`
       <div class="modal-header">
-        <h2>👥 BUNKER INHABITANTS ROSTER</h2>
+        <h2>👥 BUNKER INHABITANTS ROSTER (${aliveCount}/${maxPop} Bunks)</h2>
         <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
       </div>
       <p class="modal-desc">Monitor health, needs, and work stations of your survivors to keep the bunker thriving.</p>
@@ -442,20 +483,31 @@ class UIManager {
         engine.resources.gunpowder = Math.min(CONFIG.RESOURCE_CAPS.gunpowder, engine.resources.gunpowder + powderFound);
         
         // Chance to rescue survivor
-        if (Math.random() < 0.6 && engine.survivors.length < 12) {
-          const names = ['Jackson Cole', 'Maya Lin', 'Carlos Ortiz', 'Samantha Bell', 'Lucas Reed'];
-          const randName = names[Math.floor(Math.random() * names.length)];
-          const newSurvivor = new Survivor({
-            id: 's_' + Date.now(),
-            name: randName,
-            role: 'Outpost Survivor',
-            skill: 'Generalist',
-            avatar: '🧑‍🚀',
-            specialty: 'armory',
-            assignedRoom: 'armory'
-          });
-          engine.survivors.push(newSurvivor);
-          engine.addNotification(`🎉 Rescued a lost survivor: ${randName}!`, "success");
+        const maxPop = engine.getMaxPopulation ? engine.getMaxPopulation() : 8;
+        const aliveSurvivors = engine.survivors.filter(s => !s.isDead).length;
+        if (Math.random() < 0.6 && aliveSurvivors < maxPop) {
+          const existingNames = engine.survivors.map(s => s.name.toLowerCase());
+          let archetype = (CONFIG.UNIQUE_ARCHETYPES || []).find(a => !existingNames.includes(a.name.toLowerCase()));
+          if (!archetype) {
+            archetype = (CONFIG.EXTRA_ARCHETYPES || []).find(e => !existingNames.includes(e.name.toLowerCase()));
+          }
+          if (archetype) {
+            const newSurvivor = new Survivor({
+              id: 's_' + Date.now(),
+              name: archetype.name,
+              role: archetype.role,
+              skill: archetype.skill,
+              avatar: archetype.avatar,
+              specialty: archetype.specialty,
+              assignedRoom: archetype.assignedRoom || archetype.specialty,
+              speed: archetype.speed || 52
+            });
+            engine.survivors.push(newSurvivor);
+            engine.addNotification(`🎉 Expedition rescued ${archetype.name} (${archetype.role})! Joined the bunker crew!`, "success");
+            if (window.soundSystem) window.soundSystem.playBeep(true);
+          } else {
+            engine.addNotification(`Expedition returned with ${ammoFound} Ammo, ${metalFound} Metal, and ${powderFound} Gunpowder!`, "success");
+          }
         } else {
           engine.addNotification(`Expedition returned with ${ammoFound} Ammo, ${metalFound} Metal, and ${powderFound} Gunpowder!`, "success");
         }
@@ -475,7 +527,7 @@ class UIManager {
         <ul>
           <li><strong>Ammunition Supply:</strong> Turrets auto-fire at zombies, but consume ammo rapidly! Assign survivors to the <strong>Munitions Armory</strong> to craft ammo from Metal and Gunpowder.</li>
           <li><strong>Turret Reloads:</strong> Click the RELOAD button on the Left/Right turrets or research the Automated Ammo Conduit in the Tech Lab.</li>
-          <li><strong>Power Grid:</strong> The <strong>Diesel Generator</strong> powers turrets, lights, and room machinery. Keep it stocked with fuel refined from the Bio-Refinery.</li>
+          <li><strong>Power Grid:</strong> Powered by the <strong>Cabin Roof Solar Array</strong> (+15 kW clean energy during daylight 06:00-18:00) and the <strong>Diesel Generator</strong> (high-efficiency backup with a 200 kW battery buffer). If power falls below 40%, the autonomous AI dispatches an engineer to fuel and service the generator!</li>
           <li><strong>Inhabitant Sustenance:</strong> Survivors need Food from Hydroponics and Water from Filtration. Resting them in Living Quarters restores stamina.</li>
           <li><strong>Zombie Hordes:</strong> The radar displays when the next horde approaches. Brace your defenses and ensure turrets are fully loaded!</li>
         </ul>
@@ -518,6 +570,75 @@ class UIManager {
       this.activeModal = false;
     }
   }
+
+  // Sniper status mini-widget (injected into DOM element 'sniper-hud' if exists)
+  updateSniperWidget(engine) {
+    const el = document.getElementById('sniper-hud');
+    if (!el) return;
+    const sniper = engine.survivors ? engine.survivors.find(s =>
+      !s.isDead && (s.id === 'jackson' || (s.role && s.role.toLowerCase().includes('sniper')))
+    ) : null;
+
+    if (!sniper) {
+      el.innerHTML = `<div class="sniper-hud-row dim">🎯 WATCHTOWER — <em>No Sniper</em></div>`;
+      return;
+    }
+
+    const target = engine.sniperTarget;
+    const targetLabel = target ? `${target.type || 'Zombie'} [HP:${Math.ceil(target.hp)}]` : 'Scanning...';
+    const cooldownPct = Math.min(100, ((engine.sniperTimer || 0) / 1.8) * 100);
+
+    el.innerHTML = `
+      <div class="sniper-hud-header">🎯 WATCHTOWER — <strong>${sniper.name.split(' ')[0]}</strong> (Lvl ${sniper.level || 1})</div>
+      <div class="sniper-hud-row">Target: <span class="${target ? 'text-danger' : 'text-muted'}">${targetLabel}</span></div>
+      <div class="sniper-hud-row">
+        <span class="hud-label">⏱ COOLDOWN:</span>
+        <div class="progress-bar" style="width:80px;display:inline-block;vertical-align:middle;">
+          <div class="progress-fill bar-amber" style="width:${cooldownPct}%"></div>
+        </div>
+      </div>
+      <div class="sniper-hud-row">📦 Ammo: <span style="color:#ffd700">${Math.floor(engine.resources.ammo)}</span> | XP: ${sniper.xp || 0}</div>
+    `;
+  }
+
+  // Construction progress widgets for Turrets 3 & 4
+  updateConstructionWidgets(engine) {
+    if (!engine.constructionSites) return;
+
+    for (const site of engine.constructionSites) {
+      const el = document.getElementById(`${site.id}-hud`);
+      if (!el) continue;
+
+      if (site.built) {
+        el.innerHTML = `<div class="turret-hud-header" style="color:#00FF88">✅ ${site.label} — ONLINE</div>`;
+        if (site.turret) {
+          el.innerHTML += `<div class="sniper-hud-row">Tier: T${site.turret.tierIndex + 1} | Ammo: ${site.turret.ammo}/${site.turret.stats.maxAmmo}</div>`;
+        }
+        continue;
+      }
+
+      const hasMetal = engine.resources.metal >= site.requiredMetal;
+      const hasGP = engine.resources.gunpowder >= site.requiredGunpowder;
+      const canBuild = hasMetal && hasGP && !site.building;
+
+      el.innerHTML = `
+        <div class="turret-hud-header" style="color:${site.building ? '#F9CA24' : '#00D2FF'}">
+          📐 ${site.label} — ${site.building ? `BUILDING ${Math.floor(site.progress)}%` : 'BLUEPRINT'}
+        </div>
+        <div class="sniper-hud-row" style="color:${hasMetal ? '#00FF88' : '#FF4444'}">⚙️ Metal: ${Math.floor(engine.resources.metal)}/${site.requiredMetal}</div>
+        <div class="sniper-hud-row" style="color:${hasGP ? '#00FF88' : '#FF4444'}">💥 Powder: ${Math.floor(engine.resources.gunpowder)}/${site.requiredGunpowder}</div>
+        ${site.building ? `
+          <div class="sniper-hud-row">🔨 Builder: ${site.builder ? site.builder.name : 'Suspended'}</div>
+          <div class="progress-bar"><div class="progress-fill bar-amber" style="width:${site.progress}%"></div></div>
+        ` : canBuild ? `
+          <div class="sniper-hud-row" style="color:#00FF88">✅ Resources Ready — Auto-building!</div>
+        ` : `
+          <div class="sniper-hud-row text-dim">Gather more resources...</div>
+        `}
+      `;
+    }
+  }
 }
 
 window.UIManager = UIManager;
+

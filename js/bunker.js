@@ -53,6 +53,27 @@ class Room {
   }
 
   update(dt, workers, hasPower) {
+    // Bio-Refinery passive emergency fuel generation (anaerobic biomass digestion occurs even with 0 workers)
+    if (this.id === 'bio_refinery') {
+      const passiveRate = (CONFIG.BIO_REFINERY_PASSIVE_RATE || 0.18) * (hasPower ? 1.0 : 0.65);
+      const fuelCap = CONFIG.RESOURCE_CAPS.fuel || 150;
+      window.gameEngine.resources.fuel = Math.min(fuelCap, window.gameEngine.resources.fuel + passiveRate * dt);
+    }
+
+    // Generator power grid output and fuel burn are centrally simulated in GameEngine.updatePowerGrid
+    if (this.id === 'generator') {
+      if (workers && workers.length > 0) {
+        for (const w of workers) {
+          if (w.isDead) continue;
+          if (w.addXP) {
+            const xpRate = CONFIG.SURVIVOR_XP_PER_SEC_WORKING * (w.specialty === this.id ? CONFIG.SURVIVOR_XP_SPECIALTY_MULT : 1.0);
+            w.addXP(xpRate * dt);
+          }
+        }
+      }
+      return;
+    }
+
     if (!workers || workers.length === 0 || !hasPower || !this.produces) return;
 
     // Production calculation & Tech modifiers

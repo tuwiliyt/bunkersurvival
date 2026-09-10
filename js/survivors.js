@@ -21,14 +21,18 @@ class Survivor {
     this.xpToNext = this.getXpNeeded(this.level);
 
     this.assignedRoom = data.assignedRoom || 'armory';
-    this.status = 'working'; // 'working', 'seeking_food', 'seeking_water', 'resting', 'delivering_ammo'
+    this.status = 'working'; // 'working', 'seeking_food', 'seeking_water', 'resting', 'seeking_medical', 'delivering_ammo', 'emergency_power', 'repairing_defenses'
 
     // Visual & kinematic position
     this.x = 640;
     this.y = 350;
     this.targetX = 640;
     this.targetY = 350;
-    this.speed = 52; // px/s
+
+    const nameLower = (this.name || '').toLowerCase();
+    const roleLower = (this.role || '').toLowerCase();
+    // Samantha (Logistics Porter) sprints 50% faster (78 px/s)
+    this.speed = data.speed || (nameLower.includes('samantha') || roleLower.includes('porter') ? 78 : 52);
     this.walkCycle = Math.random() * 10;
     this.isDead = false;
 
@@ -36,8 +40,14 @@ class Survivor {
     this.inElevator = false;
     this.carryingAmmo = false;
     this.ammoDeliveryTask = null; // Logistics runner state machine
-    this.needState = null;        // 'seeking_food', 'seeking_water', 'resting'
+    this.builderRepairTask = null; // Master builder autonomous repair state machine
+    this.needState = null;        // 'seeking_food', 'seeking_water', 'resting', 'seeking_medical'
     this.needTimer = 0;
+
+    // Autonomous action timers
+    this.sniperTimer = Math.random() * 2;
+    this.medicTriageTimer = 0;
+    this.demoCraftTimer = 0;
 
     // Speech / status bubble
     this.speechText = '';
@@ -145,9 +155,11 @@ class Survivor {
     const res = engine.resources;
     const elevator = engine.elevator;
 
-    // Elena (Engineer): Sparks emitting when crafting / repairing in workshop
     const nameLower = (this.name || '').toLowerCase();
-    const isEngineer = nameLower.includes('elena') || this.specialty === 'workshop' || this.assignedRoom === 'workshop';
+    const roleLower = (this.role || '').toLowerCase();
+
+    // Elena / Carlos / Engineer: Sparks emitting when crafting / repairing in workshop
+    const isEngineer = nameLower.includes('elena') || nameLower.includes('carlos') || this.specialty === 'workshop' || this.assignedRoom === 'workshop';
     if (isEngineer && this.status === 'working' && !this.inElevator) {
       this.craftSparkTimer = (this.craftSparkTimer || 0) + dt;
       if (this.craftSparkTimer >= 0.32) {
@@ -190,17 +202,132 @@ class Survivor {
       return;
     }
 
-    // 2. Ammo Delivery Task Execution (Highest priority autonomous job)
+    // 2. High-Priority Autonomous Ammo Delivery Task Execution
     if (this.ammoDeliveryTask) {
       this.updateAmmoDelivery(dt);
       this.performMovement(dt);
       return;
     }
 
-    // 3. Autonomous Needs Routing
+    // 3. Carlos: Autonomous Defense & Barricade Repair Task Execution
+    if (this.builderRepairTask) {
+      this.updateBuilderRepair(dt);
+      this.performMovement(dt);
+      return;
+    }
+
+    // 4. Maya: Autonomous Electrical Engineer Emergency Power Task
+    const isMaya = nameLower.includes('maya') || roleLower.includes('electrical') || this.specialty === 'generator';
+    if (isMaya && !this.inElevator && !this.needState) {
+      if (engine.resources.power < 30 && engine.resources.fuel > 0) {
+        if (this.status !== 'emergency_power') {
+          this.status = 'emergency_power';
+          this.say("⚡ Power critical! Rushing to generator!", 2.5);
+        }
+      }
+      if (this.status === 'emergency_power') {
+        const genRoom = engine.getRoom('generator');
+        if (genRoom) {
+          this.targetX = genRoom.x + 32;
+          this.targetY = elevator.getFloorWalkY(genRoom.floor);
+          if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 18) {
+            // Overclock generator
+            engine.resources.power = Math.min(CONFIG.RESOURCE_CAPS.power, engine.resources.power + 28 * dt);
+            this.craftSparkTimer = (this.craftSparkTimer || 0) + dt;
+            if (this.craftSparkTimer >= 0.25) {
+              this.craftSparkTimer = 0;
+              engine.particles.spawnSparks(this.x + 4, this.y - 12, 3, '#00f3ff');
+            }
+            this.addXP(CONFIG.SURVIVOR_XP_PER_SEC_WORKING * 1.5 * dt);
+            if (engine.resources.power >= 78 || engine.resources.fuel <= 0) {
+              this.status = 'working';
+              this.say("⚡ Power grid stabilized! Back to duty.", 2.5);
+              this.assignTo(this.assignedRoom);
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Carlos: Check Damaged Cabin Barricade & Turrets
+    const isCarlos = nameLower.includes('carlos') || roleLower.includes('builder') || roleLower.includes('architect');
+    if (isCarlos && !this.builderRepairTask && this.status !== 'resting' && !this.inElevator && !this.needState) {
+      const houseDamaged = engine.houseHp < engine.houseMaxHp - 50;
+      const leftDamaged = engine.leftTurret.health < engine.leftTurret.maxHealth - 25;
+      const rightDamaged = engine.rightTurret.health < engine.rightTurret.maxHealth - 25;
+      if ((houseDamaged || leftDamaged || rightDamaged) && engine.resources.metal >= 10) {
+        let repairTarget = 'house';
+        if (leftDamaged && (!houseDamaged || engine.leftTurret.health < engine.houseHp * 0.4)) repairTarget = 'left';
+        else if (rightDamaged && (!houseDamaged || engine.rightTurret.health < engine.houseHp * 0.4)) repairTarget = 'right';
+        this.builderRepairTask = { target: repairTarget, phase: 'to_elevator' };
+        this.status = 'repairing_defenses';
+        this.say("🔧 Defenses damaged! Mobilizing repairs!", 2.5);
+      }
+    }
+
+    // 6. Jackson: Watchtower Sniper Precision Overwatch
+    const isJackson = nameLower.includes('jackson') || roleLower.includes('sniper') || roleLower.includes('marksman');
+    if (isJackson && !this.inElevator && this.status !== 'resting') {
+      this.sniperTimer = (this.sniperTimer || 0) + dt;
+      if (this.sniperTimer >= 3.2) {
+        this.sniperTimer = 0;
+        const liveZombies = engine.zombies.filter(z => !z.isDead);
+        if (liveZombies.length > 0) {
+          let targetZ = null;
+          if (engine.refugees && engine.refugees.length > 0) {
+            const activeRef = engine.refugees.find(r => !r.isDead && !r.isRescued);
+            if (activeRef) {
+              targetZ = liveZombies.find(z => Math.abs(z.x - activeRef.x) < 140);
+            }
+          }
+          if (!targetZ) {
+            targetZ = liveZombies.find(z => z.typeKey === 'brute') || liveZombies.find(z => z.typeKey === 'spitter') || liveZombies[0];
+          }
+          if (targetZ) {
+            targetZ.takeDamage(125);
+            engine.particles.spawnSparks(targetZ.x, targetZ.y - targetZ.size * 0.6, 16, '#ff4757');
+            engine.particles.addFloatingText("🎯 SNIPER HEADSHOT! (-125)", targetZ.x - 30, targetZ.y - 45, '#ffd700');
+            if (window.soundSystem) {
+              if (typeof window.soundSystem.playTurretFire === 'function') window.soundSystem.playTurretFire('left');
+              else if (typeof window.soundSystem.playGunshot === 'function') window.soundSystem.playGunshot('heavy');
+            }
+            this.addXP(CONFIG.SURVIVOR_XP_AMMO_RUN * 0.4);
+            if (Math.random() < 0.3) this.say("Target eliminated. Down in one.", 2);
+          }
+        }
+      }
+    }
+
+    // 7. Lucas: Combat Medic Triage & Medkit Production
+    const isLucas = nameLower.includes('lucas') || roleLower.includes('combat medic');
+    if (isLucas && this.assignedRoom === 'clinic' && !this.isDead) {
+      this.medicTriageTimer = (this.medicTriageTimer || 0) + dt;
+      if (this.medicTriageTimer >= 12.0) {
+        this.medicTriageTimer = 0;
+        if (engine.resources.meds < CONFIG.RESOURCE_CAPS.meds) {
+          engine.resources.meds = Math.min(CONFIG.RESOURCE_CAPS.meds, engine.resources.meds + 1);
+          engine.particles.addFloatingText("+1 FIRST AID KIT!", this.x - 20, this.y - 30, '#00d2d3');
+          this.addXP(20);
+        }
+      }
+    }
+
+    // 8. Boris: Heavy Demolitionist HE Munitions Crafting
+    const isBoris = nameLower.includes('boris') || roleLower.includes('demolition');
+    if (isBoris && (this.assignedRoom === 'armory' || this.assignedRoom === 'gunpowder_lab') && !this.isDead) {
+      this.demoCraftTimer = (this.demoCraftTimer || 0) + dt;
+      if (this.demoCraftTimer >= 22.0) {
+        this.demoCraftTimer = 0;
+        engine.particles.addFloatingText("💣 HE MUNITIONS READY!", this.x - 20, this.y - 30, '#ff9f43');
+        if (Math.random() < 0.4) this.say("Ordnance packed and ready to boom!", 2.5);
+        this.addXP(30);
+      }
+    }
+
+    // 9. Autonomous Needs Routing
     this.updateAutonomousNeeds(dt);
 
-    // 4. Movement towards target
+    // 10. Movement towards target
     this.performMovement(dt);
   }
 
@@ -219,11 +346,9 @@ class Survivor {
     const armoryWalkY = elevator.getFloorWalkY(1);
 
     if (task.phase === 'to_armory') {
-      // Walk to armory crafting bench
       this.targetX = armory.x + armory.width / 2;
       this.targetY = armoryWalkY;
 
-      // When arrived at armory
       if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 12) {
         if (engine.resources.ammo < 1) {
           this.say("No ammo in armory stock to deliver!", 2);
@@ -235,14 +360,13 @@ class Survivor {
         this.say("Ammo crate ready! Calling elevator!", 2);
       }
     } else if (task.phase === 'call_elevator_armory') {
-      // Walk to elevator shaft on Floor 1
       this.targetX = CONFIG.ELEVATOR_X - 16;
       this.targetY = armoryWalkY;
 
       if (Math.abs(this.x - this.targetX) < 10) {
         if (elevator.isAtFloor(1)) {
           elevator.board(this);
-          elevator.moveToFloor(0); // Ride to surface
+          elevator.moveToFloor(0);
           task.phase = 'riding_to_surface';
           this.say("Taking lift to surface...", 2);
         } else {
@@ -250,7 +374,6 @@ class Survivor {
         }
       }
     } else if (task.phase === 'riding_to_surface') {
-      // In elevator car moving up
       if (elevator.isAtFloor(0)) {
         elevator.exit(this);
         this.x = CONFIG.ELEVATOR_X;
@@ -259,13 +382,11 @@ class Survivor {
         this.say("Surface breached! Running to turret!", 2);
       }
     } else if (task.phase === 'running_to_turret') {
-      // Walk across surface to turret
       const turretStopX = turret.side === 'left' ? turret.x + 24 : turret.x - 24;
       this.targetX = turretStopX;
       this.targetY = CONFIG.SURFACE_Y;
 
       if (Math.abs(this.x - turretStopX) < 14) {
-        // Restock turret!
         const needed = turret.stats.maxAmmo - turret.ammo;
         const available = Math.floor(engine.resources.ammo);
         const deliverAmount = Math.min(needed, Math.min(CONFIG.AMMO_CRATE_DELIVERY_AMOUNT, available));
@@ -285,7 +406,6 @@ class Survivor {
         this.say("Restocked! Returning to bunker!", 2);
       }
     } else if (task.phase === 'returning_to_cabin') {
-      // Run back into surface cabin
       this.targetX = CONFIG.ELEVATOR_X;
       this.targetY = CONFIG.SURFACE_Y;
 
@@ -303,7 +423,6 @@ class Survivor {
         }
       }
     } else if (task.phase === 'riding_to_bunker') {
-      // In elevator car moving down
       if (elevator.isAtFloor(task.destFloor)) {
         elevator.exit(this);
         this.x = CONFIG.ELEVATOR_X;
@@ -316,6 +435,94 @@ class Survivor {
     }
   }
 
+  // Carlos: Autonomous Builder Defense Repairs
+  updateBuilderRepair(dt) {
+    const engine = window.gameEngine;
+    const elevator = engine.elevator;
+    const task = this.builderRepairTask;
+    if (!task) return;
+
+    if (task.phase === 'to_elevator') {
+      const room = engine.getRoom(this.assignedRoom);
+      const floor = room ? room.floor : 3;
+      const walkY = elevator.getFloorWalkY(floor);
+      this.targetX = CONFIG.ELEVATOR_X - 16;
+      this.targetY = walkY;
+
+      if (Math.abs(this.x - this.targetX) < 12) {
+        if (elevator.isAtFloor(floor)) {
+          elevator.board(this);
+          elevator.moveToFloor(0);
+          task.phase = 'riding_to_surface';
+          this.say("Taking lift to surface for emergency repairs!", 2);
+        } else {
+          elevator.moveToFloor(floor);
+        }
+      }
+    } else if (task.phase === 'riding_to_surface') {
+      if (elevator.isAtFloor(0)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = CONFIG.SURFACE_Y;
+        task.phase = 'running_to_defense';
+      }
+    } else if (task.phase === 'running_to_defense') {
+      let destX = 640;
+      if (task.target === 'left') destX = engine.leftTurret.x;
+      else if (task.target === 'right') destX = engine.rightTurret.x;
+      this.targetX = destX;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - destX) < 18) {
+        if (engine.resources.metal >= 10) {
+          engine.resources.metal -= 10;
+          if (task.target === 'house') {
+            engine.houseHp = Math.min(engine.houseMaxHp, engine.houseHp + 70);
+            engine.particles.addFloatingText("+70 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          } else if (task.target === 'left') {
+            engine.leftTurret.health = Math.min(engine.leftTurret.maxHealth, engine.leftTurret.health + 45);
+            engine.particles.addFloatingText("+45 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          } else {
+            engine.rightTurret.health = Math.min(engine.rightTurret.maxHealth, engine.rightTurret.health + 45);
+            engine.particles.addFloatingText("+45 HP REPAIRED", destX, CONFIG.SURFACE_Y - 30, '#55ffaa');
+          }
+          engine.particles.spawnSparks(destX, CONFIG.SURFACE_Y - 15, 20, '#ffd700');
+          if (window.soundSystem) window.soundSystem.playBeep(true);
+          this.addXP(CONFIG.SURVIVOR_XP_AMMO_RUN);
+        }
+        this.say("Repairs complete! Fortifications holding!", 2);
+        task.phase = 'returning_to_cabin';
+      }
+    } else if (task.phase === 'returning_to_cabin') {
+      this.targetX = CONFIG.ELEVATOR_X;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - CONFIG.ELEVATOR_X) < 12) {
+        if (elevator.isAtFloor(0)) {
+          elevator.board(this);
+          const room = engine.getRoom(this.assignedRoom);
+          const destFloor = room ? room.floor : 3;
+          elevator.moveToFloor(destFloor);
+          task.destFloor = destFloor;
+          task.phase = 'riding_to_workshop';
+          this.say("Returning to bunker workshop...", 2);
+        } else {
+          elevator.moveToFloor(0);
+        }
+      }
+    } else if (task.phase === 'riding_to_workshop') {
+      if (elevator.isAtFloor(task.destFloor || 3)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = elevator.getFloorWalkY(task.destFloor || 3);
+        this.builderRepairTask = null;
+        this.status = 'working';
+        this.assignTo(this.assignedRoom);
+        this.say("Safe inside! Back to construction bench.", 2);
+      }
+    }
+  }
+
   updateAutonomousNeeds(dt) {
     const engine = window.gameEngine;
     const res = engine.resources;
@@ -323,7 +530,12 @@ class Survivor {
 
     // Trigger needs if thresholds crossed
     if (!this.needState) {
-      if (this.thirst < CONFIG.THIRST_THRESHOLD && res.water >= 1) {
+      if (this.hp < 65 && res.meds >= 1) {
+        this.needState = 'seeking_medical';
+        this.status = 'seeking_medical';
+        this.needTimer = 0;
+        this.say("Wounded... heading to medical clinic.", 2);
+      } else if (this.thirst < CONFIG.THIRST_THRESHOLD && res.water >= 1) {
         this.needState = 'seeking_water';
         this.status = 'seeking_water';
         this.needTimer = 0;
@@ -342,7 +554,30 @@ class Survivor {
     }
 
     // Process active need state
-    if (this.needState === 'seeking_water') {
+    if (this.needState === 'seeking_medical') {
+      const clinic = engine.getRoom('clinic');
+      if (clinic) {
+        const destY = elevator.getFloorWalkY(clinic.floor);
+        this.targetX = clinic.x + 35;
+        this.targetY = destY;
+
+        if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 16) {
+          this.needTimer += dt;
+          this.hp = Math.min(this.maxHp, this.hp + dt * 25.0);
+          if (engine.particles && Math.random() < 0.25) {
+            engine.particles.spawnSparks(this.x, this.y - 15, 3, '#00d2d3');
+          }
+          if (this.hp >= this.maxHp) {
+            this.hp = this.maxHp;
+            this.needState = null;
+            this.status = 'working';
+            this.needTimer = 0;
+            this.say("Fully patched up and ready!", 2);
+            this.assignTo(this.assignedRoom);
+          }
+        }
+      }
+    } else if (this.needState === 'seeking_water') {
       const waterRoom = engine.getRoom('water_filter');
       if (waterRoom) {
         const destY = elevator.getFloorWalkY(waterRoom.floor);
@@ -383,7 +618,6 @@ class Survivor {
         }
       }
     } else if (this.needState === 'resting') {
-      // Find quarters
       const q = engine.getRoom('quarters_1') || engine.getRoom('quarters_2');
       if (q) {
         const destY = elevator.getFloorWalkY(q.floor);
@@ -391,7 +625,6 @@ class Survivor {
         this.targetY = destY;
 
         if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 16) {
-          // Resting restores fatigue rapidly
           if (this.fatigue <= CONFIG.FATIGUE_WAKE_THRESHOLD) {
             this.needState = null;
             this.status = 'working';
@@ -430,7 +663,6 @@ class Survivor {
     } else {
       this.x += (dx / dist) * step;
       this.y += (dy / dist) * step;
-      // Strained, heavier stride when carrying heavy munitions crate
       this.walkCycle += dt * (this.carryingAmmo ? 6.2 : 8.5);
       this.isMoving = true;
       if (dx < -1.5) this.facing = -1;
@@ -447,17 +679,26 @@ class Survivor {
     const spec = this.specialty || '';
 
     const isMarcus = nameL.includes('marcus') || roleL.includes('gunsmith') || spec === 'armory';
-    const isElena = nameL.includes('elena') || roleL.includes('engineer') || roleL.includes('mechanic') || spec === 'workshop';
-    const isSarah = nameL.includes('sarah') || roleL.includes('physician') || roleL.includes('doctor') || spec === 'clinic';
+    const isElena = (nameL.includes('elena') || roleL.includes('engineer') || roleL.includes('mechanic')) && !nameL.includes('maya') && !roleL.includes('electrical');
+    const isSarah = nameL.includes('sarah') || roleL.includes('physician') || roleL.includes('doctor');
     const isToby = nameL.includes('toby') || roleL.includes('botanist') || roleL.includes('agri') || spec === 'hydroponics';
-    const isAiden = nameL.includes('aiden') || roleL.includes('guard') || roleL.includes('security') || spec === 'security';
+    const isAiden = (nameL.includes('aiden') || roleL.includes('guard') || roleL.includes('security')) && !nameL.includes('jackson') && !roleL.includes('sniper');
+
+    const isJackson = nameL.includes('jackson') || roleL.includes('sniper') || roleL.includes('marksman');
+    const isMaya = nameL.includes('maya') || roleL.includes('electrical');
+    const isCarlos = nameL.includes('carlos') || roleL.includes('builder') || roleL.includes('architect');
+    const isSamantha = nameL.includes('samantha') || roleL.includes('porter') || roleL.includes('courier');
+    const isLucas = nameL.includes('lucas') || roleL.includes('combat medic');
+    const isBoris = nameL.includes('boris') || roleL.includes('demolition');
+
+    const arc = { isMarcus, isElena, isSarah, isToby, isAiden, isJackson, isMaya, isCarlos, isSamantha, isLucas, isBoris };
 
     // Resting sleep posture: when resting at living quarters
     const isResting = (this.status === 'resting' || this.needState === 'resting') &&
       ((this.assignedRoom && this.assignedRoom.startsWith('quarters')) || (!this.isMoving && Math.hypot(this.x - this.targetX, this.y - this.targetY) < 18));
 
     if (isResting) {
-      this.drawSleeping(ctx, isMarcus, isElena, isSarah, isToby, isAiden);
+      this.drawSleeping(ctx, arc);
       return;
     }
 
@@ -467,37 +708,39 @@ class Survivor {
     const movingLeft = this.facing === -1 || (this.targetX < this.x - 2);
     if (movingLeft) ctx.scale(-1, 1);
 
-    // Dynamic animation parameters: Idle breathing, walk bounce, leg and arm articulation
     const breath = !this.isMoving ? Math.sin(this.idleTime * 2.5) * 0.85 : 0;
     const bob = this.isMoving ? Math.abs(Math.sin(this.walkCycle)) * 2.2 : breath;
     const legSwing = this.isMoving ? Math.cos(this.walkCycle) * 4.5 : 0;
     const armSwing = this.isMoving ? Math.sin(this.walkCycle) * 5.0 : Math.sin(this.idleTime * 1.5) * 1.2;
 
-    // Hauling heavy ammo crate: realistic strained forward lean under weight
     if (this.carryingAmmo) {
-      ctx.rotate(0.09); // Forward torso rake
+      ctx.rotate(0.09);
     }
 
     // 1. LEGS & ARTICULATED BOOTS
-    this.drawSurvivorLegs(ctx, legSwing, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorLegs(ctx, legSwing, bob, arc);
 
     // 2. TORSO & ROLE-SPECIFIC COSTUMES
-    this.drawSurvivorTorso(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorTorso(ctx, bob, arc);
 
     // 3. HEAD, HAIR, CAPS & EYE ACCENTS
-    this.drawSurvivorHead(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden);
+    this.drawSurvivorHead(ctx, bob, arc);
 
-    // 4. ARMS, HELD TOOLS & TASK ANIMATIONS (Ammo crate, Eating, Drinking, Crafting)
-    this.drawSurvivorArmsAndItems(ctx, bob, armSwing, isMarcus, isElena, isSarah, isToby, isAiden);
+    // 4. ARMS, HELD TOOLS & TASK ANIMATIONS
+    this.drawSurvivorArmsAndItems(ctx, bob, armSwing, arc);
 
-    // 5. STATUS OVERLAYS (Health pip, Name tag, Speech bubble)
+    // 5. STATUS OVERLAYS
     this.drawSurvivorOverlays(ctx, bob, movingLeft);
 
     ctx.restore();
   }
 
   // --- RESTING SLEEP POSTURE WITH FLOATING 'Zzz' ICONS ---
-  drawSleeping(ctx, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSleeping(ctx, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[1], isElena: arguments[2], isSarah: arguments[3], isToby: arguments[4], isAiden: arguments[5] };
+    }
+
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -505,10 +748,10 @@ class Survivor {
 
     // Bunk cot frame & mattress
     ctx.fillStyle = '#2c3e50';
-    ctx.fillRect(-20, -6, 40, 5); // Bed base
+    ctx.fillRect(-20, -6, 40, 5);
     ctx.fillStyle = '#1e272e';
-    ctx.fillRect(-20, -1, 4, 3); // Left post
-    ctx.fillRect(16, -1, 4, 3);  // Right post
+    ctx.fillRect(-20, -1, 4, 3);
+    ctx.fillRect(16, -1, 4, 3);
 
     // Soft mattress
     ctx.fillStyle = '#cbd5e1';
@@ -520,13 +763,13 @@ class Survivor {
     ctx.ellipse(-13, -11, 5, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head resting on pillow with peaceful closed eyes
-    ctx.fillStyle = isMarcus || isToby ? '#f5cd79' : isSarah ? '#ffeaa7' : '#ffdfba';
+    // Head resting on pillow
+    ctx.fillStyle = arc.isMarcus || arc.isToby ? '#f5cd79' : arc.isSarah ? '#ffeaa7' : '#ffdfba';
     ctx.beginPath();
     ctx.arc(-11, -12 + sleepBreath * 0.3, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Closed eyes (peaceful horizontal sleep arcs)
+    // Closed eyes
     ctx.strokeStyle = '#2d3748';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -534,38 +777,64 @@ class Survivor {
     ctx.lineTo(-9.5, -12 + sleepBreath * 0.3);
     ctx.stroke();
 
-    // Resting headgear / accessory on bedpost or nightstand
-    if (isMarcus) {
-      // Marcus goggles on cot frame
+    // Resting headgear / accessory on bedpost
+    if (arc.isMarcus) {
       ctx.strokeStyle = '#d4af37';
       ctx.lineWidth = 1;
       ctx.strokeRect(10, -11, 6, 3);
-    } else if (isElena) {
-      // Elena yellow hardhat resting by cot
+    } else if (arc.isElena) {
       ctx.fillStyle = '#f39c12';
       ctx.beginPath();
       ctx.arc(12, -10, 4, Math.PI, 0);
       ctx.fill();
-    } else if (isToby) {
-      // Toby straw hat by cot edge
+    } else if (arc.isToby) {
       ctx.fillStyle = '#eccc68';
       ctx.beginPath();
       ctx.ellipse(12, -9, 6, 2.5, 0, 0, Math.PI * 2);
       ctx.fill();
-    } else if (isAiden) {
-      // Aiden green beret folded on bedpost
+    } else if (arc.isAiden) {
       ctx.fillStyle = '#1b4332';
       ctx.beginPath();
       ctx.ellipse(12, -10, 4, 2, 0, 0, Math.PI * 2);
       ctx.fill();
+    } else if (arc.isJackson) {
+      ctx.fillStyle = '#2d4a22';
+      ctx.beginPath();
+      ctx.ellipse(12, -10, 4.5, 2.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1e272e';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(15, -4); ctx.lineTo(19, -15);
+      ctx.stroke();
+    } else if (arc.isMaya) {
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(10, -11, 6, 3);
+    } else if (arc.isCarlos) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(12, -10, 4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#2980b9';
+      ctx.fillRect(14, -8, 5, 2);
+    } else if (arc.isSamantha) {
+      ctx.fillStyle = '#ff7675';
+      ctx.fillRect(11, -6, 5, 2.5);
+    } else if (arc.isLucas) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(10, -11, 5, 5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(11.5, -9.5, 2, 2);
+    } else if (arc.isBoris) {
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(10, -11, 6, 3.5);
     }
 
-    // Cozy bunker quilted blanket covering body up to chest
+    // Cozy bunker quilted blanket
     ctx.fillStyle = '#334155';
     ctx.fillRect(-6, -12 + sleepBreath * 0.7, 24, 7);
     ctx.fillStyle = '#475569';
-    ctx.fillRect(-7, -13 + sleepBreath * 0.7, 25, 2); // Folded sheet top
-    // Quilt stitch accents
+    ctx.fillRect(-7, -13 + sleepBreath * 0.7, 25, 2);
     ctx.strokeStyle = '#64748b';
     ctx.lineWidth = 0.8;
     ctx.beginPath();
@@ -573,7 +842,7 @@ class Survivor {
     ctx.moveTo(6, -11 + sleepBreath * 0.7); ctx.lineTo(14, -6);
     ctx.stroke();
 
-    // Floating animated 'Zzz' icons ascending into the air
+    // Floating animated 'Zzz' icons
     for (let i = 0; i < 3; i++) {
       const t = ((this.idleTime * 0.65 + i * 0.33) % 1.0);
       const zY = -16 - t * 24;
@@ -591,7 +860,7 @@ class Survivor {
       ctx.restore();
     }
 
-    // Health pip and name tag while resting
+    // Health pip and name tag
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : '#e74c3c';
     ctx.fillRect(-8, -20, 16 * hpRatio, 2);
@@ -602,7 +871,6 @@ class Survivor {
     const shortName = this.name.split(' ')[0];
     ctx.fillText(`${shortName} (Sleeping)`, 0, -23);
 
-    // Speech bubble if speaking
     if (this.speechText) {
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
@@ -621,28 +889,50 @@ class Survivor {
   }
 
   // --- 1. LEGS & ARTICULATED BOOTS ---
-  drawSurvivorLegs(ctx, legSwing, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorLegs(ctx, legSwing, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[3], isElena: arguments[4], isSarah: arguments[5], isToby: arguments[6], isAiden: arguments[7] };
+    }
+
     let pantsColor = '#2980b9';
     let bootColor = '#1e272e';
 
-    if (isMarcus) {
-      pantsColor = '#243342'; // Sturdy gunsmith denim
-      bootColor = '#3a2618';  // Steel-toed dark brown work boots
-    } else if (isElena) {
-      pantsColor = '#ff5722'; // High-vis orange jumpsuit legs
-      bootColor = '#1a1a1a';  // Heat-resistant black boots
-    } else if (isSarah) {
-      pantsColor = '#16a085'; // Teal surgical scrub trousers
-      bootColor = '#f8fafc';  // Clean white medical clinical shoes
-    } else if (isToby) {
-      pantsColor = '#4a3728'; // Earth-brown gardening dungarees
-      bootColor = '#2f1f14';  // Mud-stained field boots
-    } else if (isAiden) {
-      pantsColor = '#2f3640'; // Tactical charcoal BDU cargo pants
-      bootColor = '#111111';  // High-top tactical SWAT assault boots
+    if (arc.isMarcus) {
+      pantsColor = '#243342';
+      bootColor = '#3a2618';
+    } else if (arc.isElena) {
+      pantsColor = '#ff5722';
+      bootColor = '#1a1a1a';
+    } else if (arc.isSarah) {
+      pantsColor = '#16a085';
+      bootColor = '#f8fafc';
+    } else if (arc.isToby) {
+      pantsColor = '#4a3728';
+      bootColor = '#2f1f14';
+    } else if (arc.isAiden) {
+      pantsColor = '#2f3640';
+      bootColor = '#111111';
+    } else if (arc.isJackson) {
+      pantsColor = '#2d4a22';
+      bootColor = '#1b261b';
+    } else if (arc.isMaya) {
+      pantsColor = '#2c3e50';
+      bootColor = '#111111';
+    } else if (arc.isCarlos) {
+      pantsColor = '#1f3a52';
+      bootColor = '#4a2f18';
+    } else if (arc.isSamantha) {
+      pantsColor = '#0f172a';
+      bootColor = '#ff7675';
+    } else if (arc.isLucas) {
+      pantsColor = '#4b6584';
+      bootColor = '#f8fafc';
+    } else if (arc.isBoris) {
+      pantsColor = '#1e272e';
+      bootColor = '#2f3640';
     }
 
-    // Back leg (stepping with -legSwing)
+    // Back leg
     ctx.strokeStyle = pantsColor;
     ctx.lineWidth = 2.6;
     ctx.beginPath();
@@ -655,7 +945,7 @@ class Survivor {
     ctx.fillStyle = bootColor;
     ctx.fillRect(1 - legSwing, -2, 4.5, 2.5);
 
-    // Front leg (stepping with +legSwing)
+    // Front leg
     ctx.strokeStyle = pantsColor;
     ctx.lineWidth = 2.8;
     ctx.beginPath();
@@ -668,31 +958,31 @@ class Survivor {
     ctx.fillStyle = bootColor;
     ctx.fillRect(-5 + legSwing, -2, 5, 2.5);
 
-    // Elena: reflective silver hazard band on pants cuffs
-    if (isElena) {
+    if (arc.isElena) {
       ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(-4.5 + legSwing, -4, 4, 1.2);
     }
   }
 
   // --- 2. TORSO & ROLE-SPECIFIC COSTUMES ---
-  drawSurvivorTorso(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorTorso(ctx, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[2], isElena: arguments[3], isSarah: arguments[4], isToby: arguments[5], isAiden: arguments[6] };
+    }
+
     const torsoY = -17 + bob;
     const torsoW = 9;
     const torsoH = 10.5;
 
-    if (isMarcus) {
-      // Marcus (Gunsmith): Grey work shirt base with heavy leather protective apron
-      ctx.fillStyle = '#47535e'; // Grey canvas shirt
+    if (arc.isMarcus) {
+      ctx.fillStyle = '#47535e';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Heavy distressed leather apron
       ctx.fillStyle = '#8b4513';
       ctx.fillRect(-torsoW / 2 + 0.5, torsoY + 1.5, torsoW - 1, torsoH - 1.5);
       ctx.fillStyle = '#6e340d';
-      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, torsoW - 2, 4); // Front pocket
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, torsoW - 2, 4);
 
-      // Cross-shoulder leather harness straps with brass rivet studs
       ctx.strokeStyle = '#5a2507';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -700,45 +990,37 @@ class Survivor {
       ctx.moveTo(torsoW / 2 - 1, torsoY); ctx.lineTo(1, torsoY + 4);
       ctx.stroke();
 
-      // Brass rivet studs
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-2, torsoY + 1, 1.2, 1.2);
       ctx.fillRect(1, torsoY + 1, 1.2, 1.2);
 
-      // Dark brown tool belt with brass buckle
       ctx.fillStyle = '#3a1d0d';
       ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2.5, torsoW, 2);
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-1, torsoY + torsoH - 2.5, 2, 2);
-    } else if (isElena) {
-      // Elena (Engineer): Fluorescent high-vis jumpsuit with dual reflective 3M stripes
-      ctx.fillStyle = '#ff5722'; // High-vis neon orange
+    } else if (arc.isElena) {
+      ctx.fillStyle = '#ff5722';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Dual reflective silver stripes with white glint
       ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(-torsoW / 2, torsoY + 2.5, torsoW, 1.8);
       ctx.fillRect(-torsoW / 2, torsoY + 6.5, torsoW, 1.8);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(-1, torsoY + 2.5, 2, 1.8);
 
-      // Utility belt with tool loop
       ctx.fillStyle = '#2d3436';
       ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2, torsoW, 2);
-    } else if (isSarah) {
-      // Doc Sarah (Physician): Teal surgical scrubs beneath open white lab coat
-      ctx.fillStyle = '#1abc9c'; // Teal scrubs
+    } else if (arc.isSarah) {
+      ctx.fillStyle = '#1abc9c';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Tailored white doctor's lab coat with lapels
       ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 3, torsoH + 1.5); // Left coat panel
-      ctx.fillRect(torsoW / 2 - 2.5, torsoY, 3, torsoH + 1.5);  // Right coat panel
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 3, torsoH + 1.5);
+      ctx.fillRect(torsoW / 2 - 2.5, torsoY, 3, torsoH + 1.5);
       ctx.fillStyle = '#e2e8f0';
-      ctx.fillRect(-torsoW / 2 + 1, torsoY + 3.5, 2, 3); // Breast pocket with pen clip
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 3.5, 2, 3);
 
-      // Stethoscope draped around neck with silver circular chestpiece
-      ctx.strokeStyle = '#0f172a'; // Black rubber binaural tubing
+      ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(-3, torsoY);
@@ -747,60 +1029,49 @@ class Survivor {
       ctx.lineTo(3, torsoY);
       ctx.stroke();
 
-      // Silver acoustic bell disc
       ctx.fillStyle = '#cbd5e1';
       ctx.beginPath();
       ctx.arc(0.5, torsoY + 4.8, 1.4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Medical cross satchel slung on hip
-      ctx.fillStyle = '#7f1d1d'; // Crimson leather pouch
+      ctx.fillStyle = '#7f1d1d';
       ctx.fillRect(torsoW / 2 - 2, torsoY + torsoH - 4, 4.5, 4.5);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(torsoW / 2 - 0.5, torsoY + torsoH - 3.2, 1.5, 3);
       ctx.fillRect(torsoW / 2 - 1.2, torsoY + torsoH - 2.4, 3, 1.5);
-    } else if (isToby) {
-      // Toby (Botanist): Buffalo plaid checkered flannel shirt & dungarees
-      ctx.fillStyle = '#c0392b'; // Crimson flannel base
+    } else if (arc.isToby) {
+      ctx.fillStyle = '#c0392b';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Plaid criss-cross black check pattern
       ctx.fillStyle = '#2c0b0e';
       ctx.fillRect(-torsoW / 2, torsoY + 2.5, torsoW, 1.5);
       ctx.fillRect(-torsoW / 2, torsoY + 6.5, torsoW, 1.5);
       ctx.fillRect(-1.5, torsoY, 1.5, torsoH);
       ctx.fillRect(2, torsoY, 1.5, torsoH);
 
-      // Faded denim dungarees bib with brass buttons
       ctx.fillStyle = '#2980b9';
       ctx.fillRect(-torsoW / 2 + 1, torsoY + 5.5, torsoW - 2, torsoH - 5.5);
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(-2.5, torsoY + 6, 1.2, 1.2);
       ctx.fillRect(1.5, torsoY + 6, 1.2, 1.2);
 
-      // Fresh green herb sprout in bib pocket!
       ctx.fillStyle = '#2ecc71';
       ctx.beginPath();
       ctx.arc(1.5, torsoY + 4.5, 1.5, 0, Math.PI * 2);
       ctx.fill();
-    } else if (isAiden) {
-      // Aiden (Veteran Guard): Charcoal fatigues with heavy tactical Kevlar combat vest
-      ctx.fillStyle = '#353b48'; // Combat uniform base
+    } else if (arc.isAiden) {
+      ctx.fillStyle = '#353b48';
       ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
 
-      // Tactical MOLLE Kevlar vest
       ctx.fillStyle = '#1e272e';
       ctx.fillRect(-torsoW / 2 - 0.5, torsoY + 0.5, torsoW + 1, torsoH - 1.5);
 
-      // Tactical armor plate seam & magazine pouches
       ctx.fillStyle = '#2f3640';
       ctx.fillRect(-torsoW / 2 + 1, torsoY + 4.5, 3.2, 3.5);
       ctx.fillRect(0.5, torsoY + 4.5, 3.2, 3.5);
 
-      // Shoulder comms radio with mini antenna & blinking green LED
-      ctx.fillStyle = '#18191a'; // Radio body on shoulder
+      ctx.fillStyle = '#18191a';
       ctx.fillRect(-torsoW / 2 - 1, torsoY - 2, 2.5, 4);
-      // Mini whip antenna
       ctx.strokeStyle = '#2f3640';
       ctx.lineWidth = 0.8;
       ctx.beginPath();
@@ -808,24 +1079,124 @@ class Survivor {
       ctx.lineTo(-torsoW / 2 + 0.2, torsoY - 6);
       ctx.stroke();
 
-      // Blinking green comms LED indicator
       const ledOn = Math.floor(this.idleTime * 2.8) % 2 === 0;
-      if (ledOn) {
-        ctx.fillStyle = '#00ff66';
-        ctx.shadowColor = '#00ff66';
-        ctx.shadowBlur = 5;
-        ctx.beginPath();
-        ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.fillStyle = '#0e4418';
-        ctx.beginPath();
-        ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 0.9, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.fillStyle = ledOn ? '#00ff66' : '#0e4418';
+      ctx.beginPath();
+      ctx.arc(-torsoW / 2 + 0.2, torsoY - 0.5, 1.0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (arc.isJackson) {
+      // Jackson (Master Sniper): Camo ghillie mantle & sniper chest rig
+      ctx.fillStyle = '#1e2f18';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#3b5e2b';
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2 - 1, torsoY);
+      ctx.lineTo(torsoW / 2 + 1, torsoY);
+      ctx.lineTo(torsoW / 2, torsoY + 4.5);
+      ctx.lineTo(-torsoW / 2, torsoY + 4.5);
+      ctx.fill();
+
+      ctx.fillStyle = '#243b1c';
+      ctx.fillRect(-torsoW / 2 + 1, torsoY + 5, 3.2, 3.5);
+      ctx.fillRect(0.5, torsoY + 5, 3.2, 3.5);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(-1, torsoY + 1.5, 2, 2);
+    } else if (arc.isMaya) {
+      // Maya (Electrical Engineer): High-voltage electrician suit with lightning badge
+      ctx.fillStyle = '#1a252f';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(-torsoW / 2, torsoY + 2, torsoW, 1.2);
+      ctx.fillRect(-torsoW / 2, torsoY + 7, torsoW, 1.2);
+
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath();
+      ctx.moveTo(1, torsoY + 3.5);
+      ctx.lineTo(-1.5, torsoY + 6);
+      ctx.lineTo(0.5, torsoY + 6);
+      ctx.lineTo(-1, torsoY + 8.5);
+      ctx.lineTo(2, torsoY + 5.5);
+      ctx.lineTo(0, torsoY + 5.5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (arc.isCarlos) {
+      // Carlos (Master Builder): Canvas vest & blueprint roll on back
+      ctx.fillStyle = '#b33927';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#d35400';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, 2.5, torsoH);
+      ctx.fillRect(torsoW / 2 - 2, torsoY, 2.5, torsoH);
+
+      ctx.fillStyle = '#5c3a21';
+      ctx.fillRect(-torsoW / 2, torsoY + torsoH - 2.5, torsoW, 2.5);
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(-torsoW / 2 - 1.5, torsoY + torsoH - 1, 2, 3);
+
+      ctx.fillStyle = '#ecf0f1';
+      ctx.save();
+      ctx.rotate(-0.35);
+      ctx.fillRect(-torsoW / 2 - 3, torsoY - 1, 3.5, 12);
+      ctx.fillStyle = '#2980b9';
+      ctx.fillRect(-torsoW / 2 - 3, torsoY + 1, 3.5, 1.5);
+      ctx.fillRect(-torsoW / 2 - 3, torsoY + 7, 3.5, 1.5);
+      ctx.restore();
+    } else if (arc.isSamantha) {
+      // Samantha (Logistics Porter): Sleek speed courier jersey with orange chevron
+      ctx.fillStyle = '#0984e3';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#e17055';
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2, torsoY + 3);
+      ctx.lineTo(0, torsoY + 6);
+      ctx.lineTo(torsoW / 2, torsoY + 3);
+      ctx.lineTo(torsoW / 2, torsoY + 4.8);
+      ctx.lineTo(0, torsoY + 7.8);
+      ctx.lineTo(-torsoW / 2, torsoY + 4.8);
+      ctx.fill();
+
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2 + 1, torsoY);
+      ctx.lineTo(torsoW / 2, torsoY + torsoH);
+      ctx.stroke();
+    } else if (arc.isLucas) {
+      // Lucas (Combat Medic): Tactical medical vest with Red Cross emblem
+      ctx.fillStyle = '#f1f2f6';
+      ctx.fillRect(-torsoW / 2, torsoY, torsoW, torsoH);
+
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(-1.2, torsoY + 3, 2.4, 6);
+      ctx.fillRect(-3, torsoY + 4.8, 6, 2.4);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-torsoW / 2 - 1, torsoY + 1, 2.5, 3.5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY + 1.8, 1.5, 2);
+    } else if (arc.isBoris) {
+      // Boris (Heavy Demolitionist): Heavy blast flak jacket with 40mm grenade bandolier sash
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(-torsoW / 2 - 0.5, torsoY, torsoW + 1, torsoH);
+
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(-torsoW / 2, torsoY - 1, torsoW, 2);
+
+      ctx.strokeStyle = '#636e72';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW / 2, torsoY + 1);
+      ctx.lineTo(torsoW / 2, torsoY + torsoH - 1);
+      ctx.stroke();
+
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(-2.5, torsoY + 2.5, 2, 2.5);
+      ctx.fillStyle = '#c0392b';
+      ctx.fillRect(0.5, torsoY + 5.5, 2, 2.5);
     } else {
-      // Generic / Other Inhabitant: Jumpsuit matching specialty
       ctx.fillStyle = this.specialty === 'armory' ? '#d35400' :
                       this.specialty === 'clinic' ? '#27ae60' :
                       this.specialty === 'workshop' ? '#f39c12' : '#2980b9';
@@ -834,17 +1205,19 @@ class Survivor {
   }
 
   // --- 3. HEAD, HAIR, CAPS & ACCESSORIES ---
-  drawSurvivorHead(ctx, bob, isMarcus, isElena, isSarah, isToby, isAiden) {
-    const headY = -21 + bob;
-    const skinColor = isMarcus || isToby ? '#f5cd79' : isSarah ? '#ffeaa7' : isAiden ? '#f0c294' : '#ffdfba';
+  drawSurvivorHead(ctx, bob, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[2], isElena: arguments[3], isSarah: arguments[4], isToby: arguments[5], isAiden: arguments[6] };
+    }
 
-    // Head base
+    const headY = -21 + bob;
+    const skinColor = arc.isMarcus || arc.isToby ? '#f5cd79' : arc.isSarah ? '#ffeaa7' : arc.isAiden ? '#f0c294' : '#ffdfba';
+
     ctx.fillStyle = skinColor;
     ctx.beginPath();
     ctx.arc(0, headY, 4.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eye dot (subtle blink every few seconds)
     const isBlinking = (this.idleTime % 3.8) < 0.12;
     if (!isBlinking) {
       ctx.fillStyle = '#1e272e';
@@ -860,90 +1233,137 @@ class Survivor {
       ctx.stroke();
     }
 
-    if (isMarcus) {
-      // Marcus: 5 o'clock beard stubble
+    if (arc.isMarcus) {
       ctx.fillStyle = 'rgba(50, 30, 15, 0.35)';
       ctx.fillRect(0.5, headY + 1.2, 3, 2);
 
-      // Messy brown hair
       ctx.fillStyle = '#3a2010';
       ctx.beginPath();
       ctx.arc(0, headY - 1.5, 4.5, Math.PI, 0);
       ctx.fill();
 
-      // Protective brass ballistic goggles on forehead
-      ctx.strokeStyle = '#111111'; // Elastic strap around head
+      ctx.strokeStyle = '#111111';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(-4.2, headY - 1.8);
       ctx.lineTo(4.2, headY - 1.8);
       ctx.stroke();
 
-      // Twin brass-rimmed lenses on forehead
-      ctx.fillStyle = '#d4af37'; // Brass rim
+      ctx.fillStyle = '#d4af37';
       ctx.fillRect(-1.8, headY - 3.8, 2.5, 2.5);
       ctx.fillRect(1.0, headY - 3.8, 2.5, 2.5);
-      ctx.fillStyle = '#2e4a28'; // Tinted green/olive glass
+      ctx.fillStyle = '#2e4a28';
       ctx.fillRect(-1.3, headY - 3.3, 1.5, 1.5);
       ctx.fillRect(1.5, headY - 3.3, 1.5, 1.5);
-    } else if (isElena) {
-      // Elena: Brunette ponytail at back
+    } else if (arc.isElena) {
       ctx.fillStyle = '#2c1810';
       ctx.beginPath();
       ctx.arc(-4, headY + 1, 2.2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Safety hardhat & welder visor
-      ctx.fillStyle = '#f39c12'; // Bright yellow industrial hardhat
+      ctx.fillStyle = '#f39c12';
       ctx.beginPath();
       ctx.arc(0, headY - 1.2, 4.8, Math.PI, 0);
       ctx.fill();
-      // Hardhat front brim
       ctx.fillStyle = '#d68910';
       ctx.fillRect(-2, headY - 1.5, 7, 1.5);
 
-      // Flip-up dark welder visor above brow
       ctx.fillStyle = '#1c2833';
       ctx.fillRect(1.5, headY - 3.5, 3.8, 2);
       ctx.strokeStyle = '#7f8c8d';
       ctx.lineWidth = 0.8;
       ctx.strokeRect(1.5, headY - 3.5, 3.8, 2);
-    } else if (isSarah) {
-      // Doc Sarah: Light seafoam/cyan surgical scrub cap
+    } else if (arc.isSarah) {
       ctx.fillStyle = '#00d2d3';
       ctx.beginPath();
       ctx.arc(0, headY - 1.2, 4.6, Math.PI, 0);
       ctx.fill();
       ctx.fillStyle = '#01a3a4';
-      ctx.fillRect(-4.2, headY - 1.5, 8.4, 1.5); // Cap headband
-    } else if (isToby) {
-      // Toby: Broad-brimmed woven straw hat with green ribbon
-      ctx.fillStyle = '#eccc68'; // Woven golden straw brim
+      ctx.fillRect(-4.2, headY - 1.5, 8.4, 1.5);
+    } else if (arc.isToby) {
+      ctx.fillStyle = '#eccc68';
       ctx.beginPath();
       ctx.ellipse(0, headY - 1.8, 8, 2.2, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Rounded crown
       ctx.fillStyle = '#f5cd79';
       ctx.beginPath();
       ctx.arc(0, headY - 2.8, 3.8, Math.PI, 0);
       ctx.fill();
 
-      // Forest green ribbon band
       ctx.fillStyle = '#27ae60';
       ctx.fillRect(-3.6, headY - 3.2, 7.2, 1.2);
-    } else if (isAiden) {
-      // Aiden: Tactical military commando beret with golden crest badge
-      ctx.fillStyle = '#1b4332'; // Forest-green beret pulled over right brow
+    } else if (arc.isAiden) {
+      ctx.fillStyle = '#1b4332';
       ctx.beginPath();
       ctx.ellipse(0.5, headY - 2.2, 4.8, 2.6, 0.25, 0, Math.PI * 2);
       ctx.fill();
 
-      // Golden military crest insignia pin
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(1.5, headY - 3.2, 1.5, 1.5);
+    } else if (arc.isJackson) {
+      // Jackson: Camo tactical sniper cap & cyan optic
+      ctx.fillStyle = '#2d4a22';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.5, 4.5, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(-3.5, headY - 1.8, 8, 1.4);
+
+      ctx.fillStyle = '#00f3ff';
+      ctx.fillRect(1.5, headY - 1.0, 2.0, 2.0);
+    } else if (arc.isMaya) {
+      // Maya: Amber electrical safety goggles & ponytail
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.arc(-4, headY + 1, 2.0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(-1.5, headY - 3.2, 5, 2);
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(-1.5, headY - 3.2, 5, 2);
+    } else if (arc.isCarlos) {
+      // Carlos: White architect hardhat & carpenter pencil
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.5, 4.6, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#dcdde1';
+      ctx.fillRect(-4.5, headY - 1.5, 9, 1.5);
+
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillRect(-3.5, headY - 1.2, 1.2, 3.5);
+    } else if (arc.isSamantha) {
+      // Samantha: Sporty running visor & high swept ponytail
+      ctx.fillStyle = '#2d1508';
+      ctx.beginPath();
+      ctx.arc(-4.5, headY - 1.5, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e17055';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.2, 4.4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(-1, headY - 1.5, 6, 1.5);
+    } else if (arc.isLucas) {
+      // Lucas: Field surgical headset
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.arc(0, headY - 1.2, 4.4, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#00d2d3';
+      ctx.beginPath();
+      ctx.arc(1.5, headY - 2.5, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (arc.isBoris) {
+      // Boris: Rugged beard stubble & welded blast shield visor
+      ctx.fillStyle = 'rgba(30, 20, 10, 0.45)';
+      ctx.fillRect(0, headY + 1.2, 3.5, 2.5);
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(-2, headY - 4.5, 6.5, 2.5);
+      ctx.strokeStyle = '#2f3542';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(-2, headY - 4.5, 6.5, 2.5);
     } else {
-      // Generic cap
       ctx.fillStyle = '#34495e';
       ctx.beginPath();
       ctx.arc(0, headY - 1.5, 4.4, Math.PI, 0);
@@ -952,13 +1372,16 @@ class Survivor {
   }
 
   // --- 4. ARMS, HELD TOOLS & TASK ANIMATIONS ---
-  drawSurvivorArmsAndItems(ctx, bob, armSwing, isMarcus, isElena, isSarah, isToby, isAiden) {
+  drawSurvivorArmsAndItems(ctx, bob, armSwing, arc) {
+    if (typeof arc !== 'object') {
+      arc = { isMarcus: arguments[3], isElena: arguments[4], isSarah: arguments[5], isToby: arguments[6], isAiden: arguments[7] };
+    }
+
     const shoulderY = -15 + bob;
 
-    // --- SPECIAL ANIMATION: Carrying Ammo Crate ---
+    // Carrying Ammo Crate
     if (this.carryingAmmo) {
-      // Both arms wrapped forward holding heavy munitions box
-      ctx.strokeStyle = isMarcus ? '#8b4513' : '#34495e';
+      ctx.strokeStyle = arc.isMarcus ? '#8b4513' : '#34495e';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.moveTo(-1, shoulderY);
@@ -966,45 +1389,38 @@ class Survivor {
       ctx.lineTo(8, shoulderY + 4);
       ctx.stroke();
 
-      // Heavy olive green steel military munitions box with yellow stencils
-      ctx.fillStyle = '#2d4a22'; // Olive drab
+      ctx.fillStyle = '#2d4a22';
       ctx.fillRect(3, -17 + bob, 14, 9);
-      ctx.strokeStyle = '#576574'; // Steel frame brackets
+      ctx.strokeStyle = '#576574';
       ctx.lineWidth = 1;
       ctx.strokeRect(3, -17 + bob, 14, 9);
 
-      // Yellow & black hazard diagonal stripes along bottom rim
       ctx.fillStyle = '#ffd700';
       ctx.fillRect(3, -9 + bob, 14, 1.8);
       ctx.fillStyle = '#111111';
       ctx.fillRect(6, -9 + bob, 2.5, 1.8);
       ctx.fillRect(11, -9 + bob, 2.5, 1.8);
 
-      // Munitions label stencil
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 5px monospace';
       ctx.fillText('AMMO', 4, -12 + bob);
 
-      // Heavy carry side handle
       ctx.strokeStyle = '#1e272e';
       ctx.lineWidth = 1.2;
       ctx.strokeRect(2, -14 + bob, 1.5, 3.5);
       return;
     }
 
-    // --- SPECIAL ANIMATION: Eating at Kitchen ---
+    // Eating at Kitchen
     if (this.needState === 'seeking_food' && this.needTimer > 0) {
-      // Left arm holds warm earthenware bowl
       ctx.fillStyle = '#8d5524';
       ctx.beginPath();
       ctx.arc(4, shoulderY + 4, 3.5, 0, Math.PI);
       ctx.fill();
 
-      // Food stew
       ctx.fillStyle = '#e67e22';
       ctx.fillRect(1, shoulderY + 2.5, 6, 1.5);
 
-      // Soft steam wisps rising from bowl
       const steamCycle = (this.idleTime * 4) % (Math.PI * 2);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 0.8;
@@ -1015,7 +1431,6 @@ class Survivor {
       ctx.lineTo(5.5 + Math.cos(steamCycle) * 1.5, shoulderY - 5);
       ctx.stroke();
 
-      // Right arm lifts spoon to mouth rhythmically
       const spoonBob = Math.sin(this.needTimer * 7) * 3.5;
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
@@ -1026,15 +1441,13 @@ class Survivor {
       return;
     }
 
-    // --- SPECIAL ANIMATION: Drinking at Water Filter ---
+    // Drinking at Water Filter
     if (this.needState === 'seeking_water' && this.needTimer > 0) {
-      // Both hands lift water flask to lips
-      ctx.fillStyle = '#0ea5e9'; // Blue thermos flask
+      ctx.fillStyle = '#0ea5e9';
       ctx.fillRect(2, shoulderY - 3, 4, 6);
-      ctx.fillStyle = '#e2e8f0'; // Silver cap
+      ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(2.5, shoulderY - 4.5, 3, 1.5);
 
-      // Tiny refreshing water droplet glint
       ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
       ctx.arc(3.5, shoulderY - 5, 0.8, 0, Math.PI * 2);
@@ -1042,37 +1455,33 @@ class Survivor {
       return;
     }
 
-    // --- STANDARD STATE: Role-specific arms & tools ---
-    // Back arm (swings counter to front)
-    ctx.strokeStyle = isSarah ? '#f8fafc' : isElena ? '#ff5722' : '#34495e';
+    // Standard arms & tools
+    ctx.strokeStyle = arc.isSarah ? '#f8fafc' : arc.isElena ? '#ff5722' : '#34495e';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.moveTo(1, shoulderY);
     ctx.lineTo(2 - armSwing * 0.7, shoulderY + 6);
     ctx.stroke();
 
-    // Front arm with tool or natural swing
-    ctx.strokeStyle = isSarah ? '#f8fafc' : isElena ? '#ff5722' : '#34495e';
+    ctx.strokeStyle = arc.isSarah ? '#f8fafc' : arc.isElena ? '#ff5722' : '#34495e';
     ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(-1, shoulderY);
 
-    if (isMarcus) {
-      // Marcus: Heavy gunsmith wrench in hand
+    if (arc.isMarcus) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.strokeStyle = '#7f8c8d'; // Steel wrench
+      ctx.strokeStyle = '#7f8c8d';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 5);
       ctx.lineTo(7, shoulderY + 3);
       ctx.stroke();
       ctx.strokeRect(6.5, shoulderY + 1.5, 2.5, 2.5);
-    } else if (isElena) {
-      // Elena: Adjustable repair pipe wrench / welding tool
+    } else if (arc.isElena) {
       ctx.lineTo(3, shoulderY + 4);
       ctx.stroke();
-      ctx.strokeStyle = '#e74c3c'; // Red handle wrench
+      ctx.strokeStyle = '#e74c3c';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 4);
@@ -1080,11 +1489,10 @@ class Survivor {
       ctx.stroke();
       ctx.strokeStyle = '#95a5a6';
       ctx.strokeRect(6.5, shoulderY + 0.5, 2.5, 2.5);
-    } else if (isToby) {
-      // Toby: Steel garden pruning shears
+    } else if (arc.isToby) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.strokeStyle = '#cbd5e1'; // Stainless steel shear blades
+      ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(3, shoulderY + 5);
@@ -1092,29 +1500,72 @@ class Survivor {
       ctx.moveTo(3, shoulderY + 5);
       ctx.lineTo(6, shoulderY + 6);
       ctx.stroke();
-    } else if (isAiden) {
-      // Aiden: Tactical sidearm resting at combat ready
+    } else if (arc.isAiden) {
       ctx.lineTo(3, shoulderY + 5);
       ctx.stroke();
-      ctx.fillStyle = '#111111'; // Tactical combat glove
+      ctx.fillStyle = '#111111';
       ctx.fillRect(2.5, shoulderY + 4.5, 2, 2);
+    } else if (arc.isJackson) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(2, shoulderY + 1.5, 11, 2.2);
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(4, shoulderY - 0.5, 4.5, 1.8);
+      ctx.fillStyle = '#5c3a21';
+      ctx.fillRect(1, shoulderY + 3.0, 3, 2);
+    } else if (arc.isMaya) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(2.5, shoulderY + 3.5, 2.2, 2.2);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(4, shoulderY + 2, 4, 5);
+      ctx.fillStyle = '#00f3ff';
+      ctx.fillRect(5, shoulderY + 3, 2, 1.5);
+    } else if (arc.isCarlos) {
+      ctx.lineTo(3, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(3, shoulderY + 2, 1.6, 6);
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(2, shoulderY + 1, 4.5, 2);
+    } else if (arc.isSamantha) {
+      ctx.lineTo(3 + armSwing * 0.9, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#ff7675';
+      ctx.fillRect(2.5, shoulderY + 4, 2, 2);
+    } else if (arc.isLucas) {
+      ctx.lineTo(3, shoulderY + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#00d2d3';
+      ctx.fillRect(2.5, shoulderY + 3.5, 2, 2);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(4, shoulderY + 3, 4, 1.5);
+      ctx.fillStyle = '#eb4d4b';
+      ctx.fillRect(4.5, shoulderY + 3.2, 2.2, 1.1);
+    } else if (arc.isBoris) {
+      ctx.lineTo(3, shoulderY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(3, shoulderY + 2, 3.5, 6);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(2.5, shoulderY + 1.5, 4.5, 1.2);
+      ctx.fillRect(2.5, shoulderY + 7.5, 4.5, 1.2);
     } else {
-      // Standard arm swing
       ctx.lineTo(-2 + armSwing * 0.8, shoulderY + 6);
       ctx.stroke();
     }
   }
 
-  // --- 5. STATUS OVERLAYS (Health pip, Name tag, Speech bubble) ---
+  // --- 5. STATUS OVERLAYS ---
   drawSurvivorOverlays(ctx, bob, movingLeft) {
-    // Health pip
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     ctx.fillStyle = '#1e272e';
     ctx.fillRect(-7, -27 + bob, 14, 2.5);
     ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
     ctx.fillRect(-7, -27 + bob, 14 * hpRatio, 2.5);
 
-    // Name tag & Level Badge
     ctx.fillStyle = '#ffffff';
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
@@ -1122,10 +1573,9 @@ class Survivor {
     const starPrefix = this.level > 1 ? '⭐' : '';
     ctx.fillText(`${starPrefix}${shortName} [L${this.level}]`, 0, -31 + bob);
 
-    // Speech bubble if speaking
     if (this.speechText) {
       ctx.save();
-      if (movingLeft) ctx.scale(-1, 1); // Un-flip text for readability
+      if (movingLeft) ctx.scale(-1, 1);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
       ctx.font = 'bold 8px monospace';
       const textW = ctx.measureText(this.speechText).width + 8;
@@ -1140,4 +1590,255 @@ class Survivor {
   }
 }
 
+// Fleeing Refugee Pursued by Horde on Surface
+class Refugee {
+  constructor(archetype, side = 'left') {
+    this.archetype = archetype;
+    this.name = archetype.name;
+    this.role = archetype.role;
+    this.skill = archetype.skill;
+    this.avatar = archetype.avatar;
+    this.specialty = archetype.specialty || 'armory';
+    this.assignedRoom = archetype.assignedRoom || this.specialty;
+    this.side = side;
+
+    this.hp = archetype.hp || 100;
+    this.maxHp = 100;
+    this.speed = archetype.speed || 48; // Fleeing sprint speed
+    this.isDead = false;
+    this.isRescued = false;
+
+    // Kinematics on surface
+    this.x = side === 'left' ? -25 : 1305;
+    this.y = CONFIG.SURFACE_Y;
+    this.targetX = CONFIG.ELEVATOR_X; // 640 cabin entrance
+    this.walkCycle = Math.random() * 10;
+    this.facing = side === 'left' ? 1 : -1;
+
+    // Speech & distress timers
+    this.speechText = '';
+    this.speechTimer = 0;
+    this.panicTimer = 0.5;
+    this.hitFlash = 0;
+  }
+
+  say(text, duration = 2.5) {
+    this.speechText = text;
+    this.speechTimer = duration;
+  }
+
+  takeDamage(amount) {
+    if (this.isDead || this.isRescued) return;
+    this.hp -= amount;
+    this.hitFlash = 0.12;
+    if (window.gameEngine && window.gameEngine.particles) {
+      window.gameEngine.particles.spawnBlood(this.x, this.y - 12, 6, '#881111');
+    }
+    if (window.soundSystem) window.soundSystem.playZombieHit();
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.isDead = true;
+      this.die();
+    }
+  }
+
+  die() {
+    const engine = window.gameEngine;
+    if (engine) {
+      engine.particles.spawnBlood(this.x, this.y - 10, 26, '#6b1111');
+      engine.particles.spawnBloodDecal(this.x, CONFIG.SURFACE_Y, '#6b1111', 12, 6);
+      engine.particles.addFloatingText("💀 REFUGEE OVERWHELMED!", this.x - 40, this.y - 35, '#ff3333');
+      engine.addNotification(`💀 REFUGEE LOST: ${this.name} (${this.role}) was killed by the horde!`, 'danger');
+    }
+    if (window.soundSystem && window.soundSystem.playZombieShriek) {
+      window.soundSystem.playZombieShriek();
+    }
+  }
+
+  rescueSuccess() {
+    if (this.isRescued || this.isDead) return;
+    this.isRescued = true;
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    // Floating fanfare and celebratory effects
+    engine.particles.spawnSparks(CONFIG.ELEVATOR_X, CONFIG.SURFACE_Y - 20, 50, '#ffd700');
+    engine.particles.spawnSparks(CONFIG.ELEVATOR_X, CONFIG.SURFACE_Y - 20, 35, '#55ffaa');
+    engine.particles.addFloatingText("🎉 REFUGEE RESCUED!", CONFIG.ELEVATOR_X - 60, CONFIG.SURFACE_Y - 50, '#ffd700');
+    engine.particles.addFloatingText(`🎉 ${this.name.toUpperCase()} JOINED THE CREW!`, CONFIG.ELEVATOR_X - 90, CONFIG.SURFACE_Y - 32, '#55ffaa');
+
+    if (window.soundSystem) {
+      window.soundSystem.playBeep(true);
+    }
+
+    engine.addNotification(`🎉 REFUGEE RESCUED! ${this.name} (${this.role}) joined the bunker crew!`, 'success');
+
+    // Create full Survivor inhabitant
+    const survivorData = {
+      id: 's_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      name: this.name,
+      role: this.role,
+      skill: this.skill,
+      avatar: this.avatar,
+      specialty: this.specialty,
+      assignedRoom: this.assignedRoom || this.specialty,
+      hp: Math.max(45, Math.round(this.hp)),
+      maxHp: 100,
+      hunger: 80,
+      thirst: 80,
+      fatigue: 20,
+      morale: 95
+    };
+    if (this.speed) survivorData.speed = this.speed;
+
+    const newSurvivor = new Survivor(survivorData);
+    newSurvivor.say("Safe inside! Thank you for the covering fire!", 4.0);
+    newSurvivor.x = CONFIG.ELEVATOR_X;
+    newSurvivor.y = CONFIG.SURFACE_Y;
+    engine.survivors.push(newSurvivor);
+
+    // Morale boost for all living bunker survivors
+    for (const s of engine.survivors) {
+      if (!s.isDead) s.morale = Math.min(100, s.morale + 15);
+    }
+
+    // Reset pursuers target
+    for (const z of engine.zombies) {
+      if (z.targetRefugee === this) {
+        z.targetRefugee = null;
+      }
+    }
+  }
+
+  update(dt) {
+    if (this.isDead || this.isRescued) return;
+
+    if (this.hitFlash > 0) this.hitFlash -= dt;
+
+    if (this.speechTimer > 0) {
+      this.speechTimer -= dt;
+      if (this.speechTimer <= 0) this.speechText = '';
+    }
+
+    // Panicked cries for help
+    this.panicTimer -= dt;
+    if (this.panicTimer <= 0) {
+      this.panicTimer = 2.4 + Math.random() * 1.2;
+      const shouts = [
+        "HELP! THEY'RE RIGHT BEHIND ME!",
+        "OPEN THE CABIN DOOR!",
+        "KEEP SHOOTING!",
+        "DON'T LET THEM CATCH ME!",
+        "ALMOST TO SAFETY!"
+      ];
+      this.say(shouts[Math.floor(Math.random() * shouts.length)], 2.0);
+    }
+
+    // Run towards cabin door at 640
+    const dir = this.targetX > this.x ? 1 : -1;
+    this.facing = dir;
+    this.x += dir * this.speed * dt;
+    this.walkCycle += dt * 10;
+
+    // Check if reached cabin entrance
+    if (Math.abs(this.x - this.targetX) < 16) {
+      this.rescueSuccess();
+    }
+  }
+
+  draw(ctx) {
+    if (this.isDead || this.isRescued) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    if (this.facing === -1) ctx.scale(-1, 1);
+
+    if (this.hitFlash > 0) {
+      ctx.filter = 'brightness(2.2)';
+    }
+
+    const bob = Math.abs(Math.sin(this.walkCycle)) * 3.0;
+    const legSwing = Math.cos(this.walkCycle) * 7.5;
+    const armSwing = Math.sin(this.walkCycle) * 8.0;
+
+    ctx.rotate(0.18);
+
+    // Legs & boots
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -7 + bob);
+    ctx.lineTo(-legSwing, -1);
+    ctx.moveTo(0, -7 + bob);
+    ctx.lineTo(legSwing, -1);
+    ctx.stroke();
+
+    // Torso (role colored shirt)
+    const shirtColor = this.specialty === 'security' ? '#2d4a22' :
+                        this.specialty === 'generator' ? '#f39c12' :
+                        this.specialty === 'workshop' ? '#e67e22' :
+                        this.specialty === 'clinic' ? '#16a085' : '#3498db';
+    ctx.fillStyle = shirtColor;
+    ctx.fillRect(-4, -18 + bob, 8, 11);
+
+    // Head
+    ctx.fillStyle = '#ffdfba';
+    ctx.beginPath();
+    ctx.arc(0, -22 + bob, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Terrified mouth & eye
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(1, -21 + bob, 2.5, 2.5);
+    ctx.beginPath();
+    ctx.arc(1.5, -23.5 + bob, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pumping running arms
+    ctx.strokeStyle = '#ffdfba';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -16 + bob);
+    ctx.lineTo(-armSwing * 0.8, -10 + bob);
+    ctx.moveTo(0, -16 + bob);
+    ctx.lineTo(armSwing * 0.8, -12 + bob);
+    ctx.stroke();
+
+    // Health bar
+    const hpRatio = Math.max(0, this.hp / this.maxHp);
+    ctx.fillStyle = '#1e272e';
+    ctx.fillRect(-12, -33 + bob, 24, 3);
+    ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
+    ctx.fillRect(-12, -33 + bob, 24 * hpRatio, 3);
+
+    // Overhead Tag
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    const shortName = this.name.split(' ')[0];
+    ctx.fillText(`🏃 REFUGEE: ${shortName}`, 0, -38 + bob);
+
+    // Speech bubble
+    if (this.speechText) {
+      ctx.save();
+      if (this.facing === -1) ctx.scale(-1, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+      ctx.font = 'bold 8px monospace';
+      const tw = ctx.measureText(this.speechText).width + 8;
+      ctx.fillRect(-tw / 2, -52 + bob, tw, 12);
+      ctx.strokeStyle = '#ff4757';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(-tw / 2, -52 + bob, tw, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(this.speechText, 0, -43 + bob);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+}
+
 window.Survivor = Survivor;
+window.Refugee = Refugee;

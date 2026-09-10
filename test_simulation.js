@@ -82,6 +82,7 @@ const mockCtx = {
   fillRect: () => {},
   strokeRect: () => {},
   rect: () => {},
+  roundRect: () => {},
   beginPath: () => {},
   moveTo: () => {},
   lineTo: () => {},
@@ -454,6 +455,107 @@ assert("Help / Guide modal renders complete instructions", domElements['modal-co
 
 uiManager.closeModal();
 assert("Modal closes cleanly", domElements['modal-overlay'].style.display === 'none');
+
+// -------------------------------------------------------------
+// STEP 11: AUDITING SURVIVOR POPULATION EXPANSION, HORDE RESCUE & SMART AI
+// -------------------------------------------------------------
+console.log("\n--- 11. AUDITING POPULATION CAPACITY, RESCUE MECHANICS & SMART AI ---");
+
+// 11.1 Dynamic Population Capacity & Living Quarters
+assert("Base population cap is 8", engine.getMaxPopulation() === 8);
+const quarters1 = engine.getRoom('quarters_1');
+const quarters2 = engine.getRoom('quarters_2');
+assert("Living Quarters A exists", !!quarters1);
+assert("Living Quarters B exists", !!quarters2);
+
+// Simulate upgrading Living Quarters
+quarters1.level = 2; // +2
+assert("Pop cap expands to 10 with Quarters A Tier 2", engine.getMaxPopulation() === 10);
+quarters2.level = 2; // +2
+assert("Pop cap expands to 12 with Quarters B Tier 2", engine.getMaxPopulation() === 12);
+quarters1.level = 3;
+quarters2.level = 3;
+assert("Pop cap reaches 16 with Tier 3 Quarters", engine.getMaxPopulation() === 16);
+quarters1.level = 1;
+quarters2.level = 1; // Reset to level 1 (cap 8)
+
+// Check HUD population format
+uiManager.updateHUD();
+assert("HUD displays Pop: X/Y format", domElements['hud-pop'].textContent.includes("Pop:"));
+
+// 11.2 Archetype Profiles Audit
+const requiredArchetypes = ['jackson', 'maya', 'carlos', 'samantha', 'lucas', 'boris'];
+assert("CONFIG defines 6 unique archetypes", sandbox.CONFIG.UNIQUE_ARCHETYPES.length >= 6);
+for (const reqId of requiredArchetypes) {
+  const found = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === reqId || (a.name && a.name.toLowerCase().includes(reqId)));
+  assert(`Unique archetype '${reqId}' is defined`, !!found);
+}
+
+// 11.3 Refugee Horde Distress & Rescue Event
+assert("GameEngine has triggerRefugeeEvent method", typeof engine.triggerRefugeeEvent === 'function');
+engine.triggerRefugeeEvent();
+assert("Refugee spawned on surface", engine.refugees && engine.refugees.length === 1);
+
+const testRefugee = engine.refugees[0];
+assert("Refugee has valid initial HP", testRefugee.hp === 100);
+assert("Refugee targets cabin at x=640", testRefugee.targetX === 640);
+
+// Verify pursuing zombies
+const pursuerZombie = engine.zombies.find(z => z.targetRefugee === testRefugee);
+assert("Pursuing zombie spawned targeting refugee", !!pursuerZombie);
+
+// Simulate zombie attacking refugee
+pursuerZombie.x = testRefugee.x;
+pursuerZombie.update(0.1);
+assert("Refugee takes damage when attacked by pursuing zombie", testRefugee.hp < 100);
+
+// Simulate refugee successfully reaching the cabin door
+testRefugee.x = 640;
+const initialCrewCount = engine.survivors.length;
+testRefugee.update(0.1);
+assert("Refugee marks isRescued true upon reaching cabin", testRefugee.isRescued === true);
+assert("Rescued refugee converts to bunker Survivor", engine.survivors.length === initialCrewCount + 1);
+
+// 11.4 Smart Autonomous AI Verification
+// Samantha speed & priority
+const samanthaData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'samantha');
+const samantha = new sandbox.Survivor({ ...samanthaData, id: 'test_samantha' });
+assert("Samantha has 78 px/s high-speed courier velocity", samantha.speed === 78);
+
+// Smart AI: Maya emergency power response
+const mayaData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'maya');
+const maya = new sandbox.Survivor({ ...mayaData, id: 'test_maya' });
+engine.resources.power = 20; // Critical power dip
+engine.resources.fuel = 40;
+maya.update(0.1);
+assert("Maya autonomously triggers emergency_power task on low power", maya.status === 'emergency_power');
+
+// Smart AI: Carlos autonomous defense repairs
+const carlosData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'carlos');
+const carlos = new sandbox.Survivor({ ...carlosData, id: 'test_carlos' });
+engine.houseHp = 200; // Damaged barricade
+engine.resources.metal = 50;
+carlos.update(0.1);
+assert("Carlos autonomously triggers repairing_defenses task on damaged barricade", carlos.status === 'repairing_defenses');
+
+// Smart AI: Injured survivor seeking medical clinic
+const injuredSurvivor = engine.survivors[0];
+injuredSurvivor.hp = 50;
+injuredSurvivor.update(0.1);
+assert("Injured survivor autonomously seeks medical clinic", injuredSurvivor.needState === 'seeking_medical');
+
+// Smart AI: Jackson sniper overwatch
+const jacksonData = sandbox.CONFIG.UNIQUE_ARCHETYPES.find(a => a.id === 'jackson');
+const jackson = new sandbox.Survivor({ ...jacksonData, id: 'test_jackson' });
+engine.survivors.push(jackson);
+const surfaceZombie = new sandbox.Zombie('shambler', 'left');
+surfaceZombie.x = 500; // Within sniper overwatch perimeter
+engine.zombies.push(surfaceZombie);
+const initialZombieHp = surfaceZombie.hp;
+engine.sniperTimer = 4.0;
+engine.resources.ammo = 20;
+engine.updateSniper(0.1);
+assert("Jackson delivers sniper headshot damage to surface zombie", surfaceZombie.hp < initialZombieHp);
 
 console.log("\n===============================================================================");
 console.log(`🎉 ALL ${passedTests}/${totalTests} AUDIT TESTS & SIMULATION CHECKS PASSED PERFECTLY!`);

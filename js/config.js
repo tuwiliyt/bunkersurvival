@@ -16,7 +16,7 @@ const CONFIG = {
   // Initial Resources
   INITIAL_RESOURCES: {
     ammo: 250,       // Crucial focus
-    power: 100,      // Max 100
+    power: 200,      // Max 200 (Emergency Battery Storage Buffer)
     food: 80,
     water: 80,
     metal: 60,
@@ -28,7 +28,7 @@ const CONFIG = {
   // Max Resource Capacities
   RESOURCE_CAPS: {
     ammo: 1000,
-    power: 100,
+    power: 200,      // Expanded Emergency Battery Storage Buffer (was 100)
     food: 200,
     water: 200,
     metal: 300,
@@ -45,6 +45,20 @@ const CONFIG = {
   THIRST_THRESHOLD: 40,
   FATIGUE_REST_THRESHOLD: 80,
   FATIGUE_WAKE_THRESHOLD: 15,
+
+  // Solar Power & Renewable Energy System (Cabin Roof Array)
+  SOLAR_POWER_OUTPUT: 15.0, // +15 kW passive clean energy during daylight hours
+  SOLAR_DAY_START: 6.0,     // 06:00
+  SOLAR_DAY_END: 18.0,      // 18:00
+
+  // Generator & Power Grid Logistics
+  GENERATOR_BASE_OUTPUT: 30.0, // Base output kW when generator is active (was 15-20 kW)
+  GENERATOR_FUEL_RATE: 0.04,   // 0.04 fuel/sec (increased efficiency: 750 kW·s per unit of fuel)
+  POWER_AUTONOMOUS_THRESHOLD: 0.40, // 40% battery threshold (80 kW) triggers autonomous fueling & maintenance
+  POWER_RESTORED_THRESHOLD: 0.85,   // 85% battery threshold (170 kW) restores survivor to original post
+
+  // Bio-Refinery Passive Emergency Production
+  BIO_REFINERY_PASSIVE_RATE: 0.18, // 0.18 fuel/sec passive generation even with 0 workers
 
   // Ammo Supply Logistics
   AMMO_DELIVERY_THRESHOLD: 0.35, // Restock turret when ammo < 35%
@@ -112,11 +126,11 @@ const CONFIG = {
 
     // Floor 4: Sub-level 4 (Deep Infrastructure)
     { id: 'generator', floor: 4, col: 0, name: 'Diesel Generator', icon: '⚡', color: '#68451f', 
-      desc: 'Main power plant providing electricity to the bunker & turrets.', 
-      produces: 'power', rate: 15.0, cost: { fuel: 0.15 }, maxWorkers: 2, powerCost: 0 },
+      desc: 'Heavy industrial backup power plant providing high-yield electricity to bunker & turrets.', 
+      produces: 'power', rate: 30.0, cost: { fuel: 0.04 }, maxWorkers: 2, powerCost: 0 },
     { id: 'bio_refinery', floor: 4, col: 1, name: 'Bio-Fuel Refinery', icon: '🛢️', color: '#494420', 
-      desc: 'Refines organic biomass and deep oil into diesel fuel.', 
-      produces: 'fuel', rate: 0.6, maxWorkers: 2, powerCost: 3 },
+      desc: 'Refines organic biomass into diesel fuel (passive compost fermentation + active distillation).', 
+      produces: 'fuel', rate: 0.75, maxWorkers: 2, powerCost: 3 },
     { id: 'mine', floor: 4, col: 2, name: 'Deep Excavation', icon: '⛏️', color: '#3a3532', 
       desc: 'Mines subterranean rock for raw metals and sulfur.', 
       produces: 'metal', rate: 1.4, maxWorkers: 3, powerCost: 3 },
@@ -142,6 +156,10 @@ const CONFIG = {
     brute: { name: 'Goliath Brute', hp: 450, speed: 14, damage: 35, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
   },
 
+  // Population & Living Quarters
+  BASE_POPULATION_CAP: 8,
+  POPULATION_PER_QUARTERS_TIER: 2,
+
   // Initial Survivors
   INITIAL_SURVIVORS: [
     { id: 's1', name: 'Marcus Cole', role: 'Chief Gunsmith', skill: 'Munitions', avatar: '👨‍🔧', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 95, assignedRoom: 'armory', specialty: 'armory' },
@@ -149,6 +167,99 @@ const CONFIG = {
     { id: 's3', name: 'Doc Sarah Chen', role: 'Field Physician', skill: 'Medicine', avatar: '👩‍⚕️', hp: 100, maxHp: 100, hunger: 95, thirst: 95, fatigue: 0, morale: 88, assignedRoom: 'clinic', specialty: 'clinic' },
     { id: 's4', name: 'Toby Miller', role: 'Agri-Specialist', skill: 'Botany', avatar: '👨‍🌾', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 92, assignedRoom: 'hydroponics', specialty: 'hydroponics' },
     { id: 's5', name: 'Aiden Brooks', role: 'Security Guard', skill: 'Ballistics', avatar: '👮‍♂️', hp: 100, maxHp: 100, hunger: 88, thirst: 85, fatigue: 0, morale: 90, assignedRoom: 'security', specialty: 'security' }
+  ],
+
+  // 6 New Unique Survivor Archetypes (Rescued from Horde Waves)
+  UNIQUE_ARCHETYPES: [
+    {
+      id: 'jackson',
+      name: 'Jackson Cross',
+      role: 'Master Sniper',
+      skill: 'Marksman',
+      avatar: '🎯',
+      specialty: 'security',
+      assignedRoom: 'security',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Expert marksman with lethal rifle skills. Provides surface watchtower sniper overwatch.',
+      quote: 'Target acquired. Down in one.'
+    },
+    {
+      id: 'maya',
+      name: 'Maya Lin',
+      role: 'Electrical Engineer',
+      skill: 'Power Grid',
+      avatar: '⚡',
+      specialty: 'generator',
+      assignedRoom: 'generator',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Maintains generator, solar grid, and electrical systems. Autonomously prevents power blackouts.',
+      quote: 'Keep the turbines humming, keep the lights burning.'
+    },
+    {
+      id: 'carlos',
+      name: 'Carlos Ortiz',
+      role: 'Master Builder',
+      skill: 'Architecture',
+      avatar: '👷‍♂️',
+      specialty: 'workshop',
+      assignedRoom: 'workshop',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Architect and builder. Autonomously repairs damaged defenses and speeds up construction.',
+      quote: 'Measure twice, fortify once.'
+    },
+    {
+      id: 'samantha',
+      name: 'Samantha Bell',
+      role: 'Logistics Porter',
+      skill: 'Speed Courier',
+      avatar: '🏃‍♀️',
+      specialty: 'armory',
+      assignedRoom: 'armory',
+      hp: 100,
+      maxHp: 100,
+      speed: 78,
+      desc: 'Dedicated rapid ammo carrier (+50% sprint speed). Ensures turrets never run dry.',
+      quote: 'Ammo delivery inbound, moving fast!'
+    },
+    {
+      id: 'lucas',
+      name: 'Lucas Reed',
+      role: 'Combat Medic',
+      skill: 'Trauma Surgery',
+      avatar: '💉',
+      specialty: 'clinic',
+      assignedRoom: 'clinic',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Battle-hardened physician. Administers rapid triage and medical care in the clinic.',
+      quote: 'Hold on, I will get you patched up.'
+    },
+    {
+      id: 'boris',
+      name: 'Boris Volkov',
+      role: 'Heavy Demolitionist',
+      skill: 'High Explosives',
+      avatar: '💣',
+      specialty: 'armory',
+      assignedRoom: 'armory',
+      hp: 100,
+      maxHp: 100,
+      desc: 'Heavy ordnance specialist. Vastly accelerates munitions production and crafts explosive rounds.',
+      quote: 'More gunpowder, bigger boom!'
+    }
+  ],
+
+  // Extra Veteran Survivors for population expansion up to 16+
+  EXTRA_ARCHETYPES: [
+    { name: 'Harper Vance', role: 'Field Scout', skill: 'Tracking', avatar: '🏹', specialty: 'airlock', assignedRoom: 'airlock' },
+    { name: 'Viktor Kozlov', role: 'Chief Blacksmith', skill: 'Metallurgy', avatar: '⚒️', specialty: 'mine', assignedRoom: 'mine' },
+    { name: 'Chloe Bennett', role: 'Bio-Chemist', skill: 'Synthetics', avatar: '🧪', specialty: 'gunpowder_lab', assignedRoom: 'gunpowder_lab' },
+    { name: 'Derek Stone', role: 'Veteran Marine', skill: 'Tactics', avatar: '🎖️', specialty: 'security', assignedRoom: 'security' },
+    { name: 'Zoe Gallagher', role: 'Hydroponics Botanist', skill: 'Agriculture', avatar: '🌿', specialty: 'hydroponics', assignedRoom: 'hydroponics' },
+    { name: 'Mason Wright', role: 'Tunnel Excavator', skill: 'Mining', avatar: '⛏️', specialty: 'mine', assignedRoom: 'mine' }
   ]
 };
 

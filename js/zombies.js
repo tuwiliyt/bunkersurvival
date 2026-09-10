@@ -27,6 +27,7 @@ class Zombie {
     this.isDead = false;
     this.animTime = Math.random() * 10;
     this.dripTimer = Math.random();
+    this.targetRefugee = null;
   }
 
   takeDamage(amount) {
@@ -116,6 +117,28 @@ class Zombie {
             window.gameEngine.particles.spawnSmokePuff(this.x, CONFIG.SURFACE_Y, 7, 'rgba(150, 135, 120, 0.6)');
           }
         }
+      }
+    }
+
+    // If assigned to pursue a fleeing refugee on surface
+    if (this.targetRefugee) {
+      if (this.targetRefugee.isDead || this.targetRefugee.isRescued) {
+        this.targetRefugee = null;
+      } else {
+        const distToRefugee = Math.abs(this.x - this.targetRefugee.x);
+        if (distToRefugee <= 20) {
+          if (this.attackCooldown <= 0) {
+            this.attackCooldown = this.attackRate;
+            this.targetRefugee.takeDamage(this.damage);
+            if (window.soundSystem && window.soundSystem.playZombieShriek) {
+              window.soundSystem.playZombieShriek();
+            }
+          }
+        } else {
+          const dir = this.x < this.targetRefugee.x ? 1 : -1;
+          this.x += dir * (this.speed * 1.05) * dt;
+        }
+        return;
       }
     }
 
@@ -766,6 +789,7 @@ class WaveManager {
     this.hordeSpawnQueue = [];
     this.ambientSpawnTimer = 18; // Occasional straggler
     this.sirenPlayed = false;
+    this.refugeeDistressTriggered = false;
   }
 
   update(dt, zombiesList) {
@@ -783,6 +807,14 @@ class WaveManager {
       // Time to trigger horde!
       if (this.timer <= 0) {
         this.startHorde();
+      }
+
+      // Occasional mid-intermission refugee distress event
+      if (!this.refugeeDistressTriggered && this.timer <= 45 && this.currentWave >= 1) {
+        this.refugeeDistressTriggered = true;
+        if (window.gameEngine && window.gameEngine.triggerRefugeeEvent) {
+          window.gameEngine.triggerRefugeeEvent();
+        }
       }
 
       // Ambient wandering zombies (rare stragglers or small group)
@@ -835,6 +867,7 @@ class WaveManager {
     this.isHordeActive = true;
     this.currentWave++;
     this.sirenPlayed = false;
+    this.refugeeDistressTriggered = false;
     if (window.soundSystem) window.soundSystem.playSiren();
     window.gameEngine.addNotification(`🚨 WAVE ${this.currentWave} ATTACKING! ALL DEFENSES READY!`, "danger");
 
@@ -898,6 +931,15 @@ class WaveManager {
 
     engine.particles.addFloatingText(`+${bonusAmmo} BONUS AMMO!`, 640, 200, '#ffe57f');
     engine.particles.addFloatingText(`+${bonusMetal} BONUS METAL!`, 640, 180, '#9cdcfe');
+
+    // Trigger Horde Refugee Rescue distress event right after wave is repelled!
+    if (engine && engine.triggerRefugeeEvent) {
+      setTimeout(() => {
+        if (window.gameEngine && !window.gameEngine.isPaused) {
+          window.gameEngine.triggerRefugeeEvent();
+        }
+      }, 1200);
+    }
   }
 }
 

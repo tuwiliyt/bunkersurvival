@@ -36,6 +36,10 @@ class SoundSystem {
     }
   }
 
+  playTurretFire(type = 'normal') {
+    this.playGunshot(type);
+  }
+
   // Turret gunshot
   playGunshot(type = 'normal') {
     if (this.muted || !this.ctx) return;
@@ -112,6 +116,144 @@ class SoundSystem {
 
     osc.start(t);
     osc.stop(t + 0.1);
+  }
+
+  // Heavy .50 Caliber AP Marksman Rifle Gunshot Crack & Resonant Tail
+  playSniperRifle() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+
+    // 1. Supersonic ballistic shockwave crack (sharp high-frequency transient)
+    const crackBufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+    const crackBuffer = this.ctx.createBuffer(1, crackBufferSize, this.ctx.sampleRate);
+    const crackData = crackBuffer.getChannelData(0);
+    for (let i = 0; i < crackBufferSize; i++) {
+      crackData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.022));
+    }
+    const crackNoise = this.ctx.createBufferSource();
+    crackNoise.buffer = crackBuffer;
+
+    const crackFilter = this.ctx.createBiquadFilter();
+    crackFilter.type = 'bandpass';
+    crackFilter.frequency.setValueAtTime(2800, t);
+    crackFilter.frequency.exponentialRampToValueAtTime(320, t + 0.1);
+    crackFilter.Q.value = 3.2;
+
+    const crackGain = this.ctx.createGain();
+    crackGain.gain.setValueAtTime(0.9, t);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+    crackNoise.connect(crackFilter);
+    crackFilter.connect(crackGain);
+    crackGain.connect(this.masterGain);
+    crackNoise.start(t);
+
+    // 2. Heavy .50 BMG explosive chamber pressure punch
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'triangle';
+    subOsc.frequency.setValueAtTime(125, t);
+    subOsc.frequency.exponentialRampToValueAtTime(24, t + 0.28);
+
+    subGain.gain.setValueAtTime(0.85, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.masterGain);
+    subOsc.start(t);
+    subOsc.stop(t + 0.32);
+
+    // 3. Wide resonant forest echo & rolling atmospheric rumble
+    const echoBufferSize = Math.floor(this.ctx.sampleRate * 0.55);
+    const echoBuffer = this.ctx.createBuffer(1, echoBufferSize, this.ctx.sampleRate);
+    const echoData = echoBuffer.getChannelData(0);
+    for (let i = 0; i < echoBufferSize; i++) {
+      echoData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+    }
+    const echoNoise = this.ctx.createBufferSource();
+    echoNoise.buffer = echoBuffer;
+
+    const echoFilter = this.ctx.createBiquadFilter();
+    echoFilter.type = 'lowpass';
+    echoFilter.frequency.setValueAtTime(420, t);
+    echoFilter.frequency.exponentialRampToValueAtTime(65, t + 0.52);
+
+    const echoGain = this.ctx.createGain();
+    echoGain.gain.setValueAtTime(0.42, t + 0.03);
+    echoGain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+
+    echoNoise.connect(echoFilter);
+    echoFilter.connect(echoGain);
+    echoGain.connect(this.masterGain);
+    echoNoise.start(t + 0.02);
+  }
+
+  // Metallic Bolt-Action Cycle (Handle lift, slide back, casing eject, lock into battery)
+  playBoltCycle() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+
+    // Stage 1: Bolt handle up & unlock (sharp metallic snap)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(1500, t);
+    osc1.frequency.exponentialRampToValueAtTime(420, t + 0.05);
+    gain1.gain.setValueAtTime(0.32, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+    osc1.start(t);
+    osc1.stop(t + 0.07);
+
+    // Stage 2: Heavy bolt slide rearward & brass ejection clink
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(700, t2);
+      osc2.frequency.exponentialRampToValueAtTime(240, t2 + 0.07);
+      gain2.gain.setValueAtTime(0.25, t2);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.08);
+      osc2.connect(gain2);
+      gain2.connect(this.masterGain);
+      osc2.start(t2);
+      osc2.stop(t2 + 0.09);
+
+      // Casing bounce ring
+      const ringOsc = this.ctx.createOscillator();
+      const ringGain = this.ctx.createGain();
+      ringOsc.type = 'sine';
+      ringOsc.frequency.setValueAtTime(2800, t2);
+      ringOsc.frequency.exponentialRampToValueAtTime(1100, t2 + 0.12);
+      ringGain.gain.setValueAtTime(0.18, t2);
+      ringGain.gain.exponentialRampToValueAtTime(0.001, t2 + 0.13);
+      ringOsc.connect(ringGain);
+      ringGain.connect(this.masterGain);
+      ringOsc.start(t2);
+      ringOsc.stop(t2 + 0.14);
+    }, 75);
+
+    // Stage 3: Steel bolt slide forward & chamber lock into battery
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const t3 = this.ctx.currentTime;
+      const osc3 = this.ctx.createOscillator();
+      const gain3 = this.ctx.createGain();
+      osc3.type = 'triangle';
+      osc3.frequency.setValueAtTime(320, t3);
+      osc3.frequency.exponentialRampToValueAtTime(1150, t3 + 0.07);
+      gain3.gain.setValueAtTime(0.38, t3);
+      gain3.gain.exponentialRampToValueAtTime(0.001, t3 + 0.08);
+      osc3.connect(gain3);
+      gain3.connect(this.masterGain);
+      osc3.start(t3);
+      osc3.stop(t3 + 0.09);
+    }, 230);
   }
 
   // Empty turret click
@@ -440,6 +582,106 @@ class SoundSystem {
     osc.stop(t + dur);
   }
 
+  // Metallic hammer strike on steel mounting plate
+  playHammer() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const dur = 0.14;
+
+    // 1. High metallic ring ping
+    const ping = this.ctx.createOscillator();
+    const pingGain = this.ctx.createGain();
+    ping.type = 'triangle';
+    ping.frequency.setValueAtTime(1650 + Math.random() * 200, t);
+    ping.frequency.exponentialRampToValueAtTime(800, t + dur);
+    pingGain.gain.setValueAtTime(0.25, t);
+    pingGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    ping.connect(pingGain);
+    pingGain.connect(this.masterGain);
+    ping.start(t);
+    ping.stop(t + dur);
+
+    // 2. Heavy anvil/steel thud impact
+    const thud = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(220, t);
+    thud.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+    thudGain.gain.setValueAtTime(0.4, t);
+    thudGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    thud.connect(thudGain);
+    thudGain.connect(this.masterGain);
+    thud.start(t);
+    thud.stop(t + 0.1);
+  }
+
+  // Electric welding arc sizzle & spark crackle
+  playWeldSparks() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const dur = 0.09;
+
+    const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1.0 : 0.4);
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2400, t);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start(t);
+  }
+
+  // Triumphant rising construction completion chime
+  playConstructionChime() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    // Ascending arpeggio: C5 (523.25), E5 (659.25), G5 (783.99), C6 (1046.50)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const startTime = t + idx * 0.08;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + 0.52);
+
+      // Harmonic chime shimmer
+      const harm = this.ctx.createOscillator();
+      const harmGain = this.ctx.createGain();
+      harm.type = 'triangle';
+      harm.frequency.setValueAtTime(freq * 2, startTime);
+      harmGain.gain.setValueAtTime(0.12, startTime);
+      harmGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+      harm.connect(harmGain);
+      harmGain.connect(this.masterGain);
+      harm.start(startTime);
+      harm.stop(startTime + 0.37);
+    });
+  }
+
   // Retro CRT switch click
   playCRTClick(on = true) {
     if (this.muted || !this.ctx) return;
@@ -457,6 +699,92 @@ class SoundSystem {
     osc.start(t);
     osc.stop(t + 0.05);
   }
+
+  // High-caliber sniper rifle crack + supersonic tail
+  playSniperShot() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const bufSz = Math.floor(this.ctx.sampleRate * 0.12);
+    const buf = this.ctx.createBuffer(1, bufSz, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.018));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const filt = this.ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 900;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    noise.connect(filt); filt.connect(g); g.connect(this.masterGain);
+    noise.start(t);
+    const osc = this.ctx.createOscillator();
+    const og = this.ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(22, t + 0.18);
+    og.gain.setValueAtTime(0.7, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    osc.connect(og); og.connect(this.masterGain);
+    osc.start(t); osc.stop(t + 0.2);
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const og2 = this.ctx.createGain();
+      osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(62, t2);
+      osc2.frequency.exponentialRampToValueAtTime(28, t2 + 0.4);
+      og2.gain.setValueAtTime(0.18, t2);
+      og2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.45);
+      osc2.connect(og2); og2.connect(this.masterGain);
+      osc2.start(t2); osc2.stop(t2 + 0.5);
+    }, 90);
+  }
+
+  // Construction: hammering + electric welding buzz
+  playConstruction() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1100, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.06);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t + 0.08);
+    setTimeout(() => {
+      if (!this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const g2 = this.ctx.createGain();
+      osc2.type = 'sawtooth'; osc2.frequency.value = 160;
+      g2.gain.setValueAtTime(0.12, t2);
+      g2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.15);
+      osc2.connect(g2); g2.connect(this.masterGain);
+      osc2.start(t2); osc2.stop(t2 + 0.16);
+    }, 120);
+  }
+
+  // Triumphant fanfare when refugee is rescued
+  playRefugeeFanfare() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      const st = t + i * 0.08;
+      g.gain.setValueAtTime(0.22, st);
+      g.gain.exponentialRampToValueAtTime(0.001, st + 0.5);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(st); osc.stop(st + 0.55);
+    });
+  }
 }
 
 window.soundSystem = new SoundSystem();
+
