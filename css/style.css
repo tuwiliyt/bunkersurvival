@@ -300,31 +300,33 @@ body.crt-active .turret-hud-overlay {
   right: 14px;
 }
 
-/* Sniper Watchtower HUD — bottom-center */
+/* Sniper Watchtower HUD — bottom-center (slim) */
 .turret-hud-overlay.sniper {
   left: 50%;
   transform: translateX(-50%);
   top: auto;
   bottom: 14px;
-  width: 240px;
+  width: 210px;
   border-color: #c0392b;
 }
 
-/* Roof Turret 3 blueprint/status — upper-left of center */
+/* Roof Turret 3 blueprint/status — bottom-left corner (below left turret HUD) */
 .turret-hud-overlay.roof-left {
-  left: 50%;
-  margin-left: -260px;
-  top: 12px;
-  width: 200px;
+  left: 14px;
+  top: auto;
+  bottom: 14px;
+  width: 185px;
   border-color: #00D2FF;
 }
 
-/* Roof Turret 4 blueprint/status — upper-right of center */
+/* Roof Turret 4 blueprint/status — bottom-right corner (below right turret HUD) */
 .turret-hud-overlay.roof-right {
-  left: 50%;
-  margin-left: 60px;
-  top: 12px;
-  width: 200px;
+  right: 14px;
+  left: auto;
+  margin-left: 0;
+  top: auto;
+  bottom: 14px;
+  width: 185px;
   border-color: #00D2FF;
 }
 

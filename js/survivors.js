@@ -44,6 +44,22 @@ class Survivor {
     this.needState = null;        // 'seeking_food', 'seeking_water', 'resting', 'seeking_medical'
     this.needTimer = 0;
 
+    // ── Combat System (all survivors can shoot) ───────────────────────────
+    this.combatXP = 0;           // Combat experience (auto-upgrades damage)
+    this.combatLevel = 1;        // 1-10: +8% damage per level
+    this.shootTimer = Math.random() * 2; // Staggered initial fire
+    this.bossMode = false;       // True when boss is active → go to surface & shoot
+    this.surfaceX = 0;           // Assigned surface combat position
+    this.surfaceY = CONFIG.SURFACE_Y || 240;
+    this.isShooting = false;
+    this.shootFlash = 0;         // Muzzle flash timer
+
+    // ── Sniper Logistics (supply runner & rest rotation) ──────────────────
+    this.isSniperSupplyRunner = false; // This survivor is bringing food/water to sniper
+    this.sniperSupplyTimer = 0;
+    this.isTakingSniperShift = false;  // This survivor is resting after sniper duty
+    this.sniperShiftTimer = 0;
+
     // Autonomous action timers
     this.sniperTimer = Math.random() * 2;
     this.medicTriageTimer = 0;
@@ -97,6 +113,79 @@ class Survivor {
       this.y = room.y + room.height - 12;
       this.targetX = this.x;
       this.targetY = this.y;
+    }
+  }
+
+  // ── Combat System ──────────────────────────────────────────────────────────
+  // Combat damage scales with combatLevel (+8% per level) and role bonus
+  getCombatDamage() {
+    const base = 18 + this.combatLevel * 4; // 22–58 base damage
+    const roleBonus = {
+      'sniper': 3.2, 'marksman': 2.8, 'soldier': 2.0, 'demolitionist': 1.8,
+      'security': 1.6, 'engineer': 1.2, 'builder': 1.1, 'medic': 1.0,
+      'scientist': 0.9, 'farmer': 0.85, 'cook': 0.85, 'porter': 1.0
+    };
+    const rb = roleBonus[(this.role || '').toLowerCase()] || 1.0;
+    return base * rb * (this.getEfficiency ? this.getEfficiency() : 1.0);
+  }
+
+  addCombatXP(amount) {
+    if (this.isDead) return;
+    this.combatXP = (this.combatXP || 0) + amount;
+    const needed = 80 + this.combatLevel * 40;
+    if (this.combatXP >= needed && this.combatLevel < 10) {
+      this.combatXP -= needed;
+      this.combatLevel++;
+      this.say(`🎯 Combat Lvl ${this.combatLevel}!`, 2.5);
+    }
+  }
+
+  // Fire at a target (zombie or boss) — all survivors can shoot
+  shoot(target, engine, dt) {
+    if (this.isDead || !target) return;
+    const role = (this.role || '').toLowerCase();
+    // Fire rate by role (seconds between shots)
+    const isSniper = role.includes('sniper') || role.includes('marksman');
+    const isMedic = role.includes('medic') || role.includes('cook') || role.includes('farm');
+    const fireRate = isSniper ? 1.5 : isMedic ? 2.8 : 1.8;
+
+    this.shootTimer = (this.shootTimer || 0) + dt;
+    if (this.shootTimer < fireRate) return;
+    if (engine.resources.ammo < 1) return;
+
+    this.shootTimer = 0;
+    engine.resources.ammo = Math.max(0, engine.resources.ammo - 1);
+
+    const dmg = this.getCombatDamage();
+    const headshot = isSniper && Math.random() < 0.4;
+    const finalDmg = headshot ? dmg * 1.8 : dmg;
+
+    if (target.takeDamage) target.takeDamage(finalDmg);
+    this.addCombatXP(headshot ? 20 : 10);
+    this.addXP && this.addXP(headshot ? 12 : 6);
+
+    // Muzzle flash VFX
+    this.shootFlash = 0.12;
+    const tx = target.x, ty = target.y - (target.size || 14) * 0.7;
+    if (engine.particles) {
+      const a = Math.atan2(ty - this.y, tx - this.x);
+      engine.particles.spawnSparks(this.x + Math.cos(a) * 8, this.y - 8, 4, '#FFE57F');
+      // Tracer dot
+      engine.particles.particles.push({
+        x: this.x, y: this.y - 8,
+        vx: Math.cos(a) * 180, vy: Math.sin(a) * 180,
+        life: 0.08, maxLife: 0.08, size: 2,
+        color: isSniper ? '#FFD700' : '#FFCC44',
+        gravity: 0, type: 'tracer'
+      });
+      if (headshot && engine.particles.addFloatingText) {
+        engine.particles.addFloatingText(tx, ty - 12, `HEADSHOT -${Math.floor(finalDmg)}`, '#FFD700');
+      }
+    }
+
+    // Audio: staggered so not all fire simultaneously
+    if (Math.random() < 0.4 && window.soundSystem) {
+      isSniper ? window.soundSystem.playSniperShot() : window.soundSystem.playGunshot();
     }
   }
 

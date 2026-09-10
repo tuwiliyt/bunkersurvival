@@ -307,31 +307,33 @@ body.crt-active .turret-hud-overlay {
   right: 14px;
 }
 
-/* Sniper Watchtower HUD — bottom-center */
+/* Sniper Watchtower HUD — bottom-center (slim) */
 .turret-hud-overlay.sniper {
   left: 50%;
   transform: translateX(-50%);
   top: auto;
   bottom: 14px;
-  width: 240px;
+  width: 210px;
   border-color: #c0392b;
 }
 
-/* Roof Turret 3 blueprint/status — upper-left of center */
+/* Roof Turret 3 blueprint/status — bottom-left corner (below left turret HUD) */
 .turret-hud-overlay.roof-left {
-  left: 50%;
-  margin-left: -260px;
-  top: 12px;
-  width: 200px;
+  left: 14px;
+  top: auto;
+  bottom: 14px;
+  width: 185px;
   border-color: #00D2FF;
 }
 
-/* Roof Turret 4 blueprint/status — upper-right of center */
+/* Roof Turret 4 blueprint/status — bottom-right corner (below right turret HUD) */
 .turret-hud-overlay.roof-right {
-  left: 50%;
-  margin-left: 60px;
-  top: 12px;
-  width: 200px;
+  right: 14px;
+  left: auto;
+  margin-left: 0;
+  top: auto;
+  bottom: 14px;
+  width: 185px;
   border-color: #00D2FF;
 }
 
@@ -1733,6 +1735,45 @@ class SoundSystem {
       osc.connect(g); g.connect(this.masterGain);
       osc.start(st); osc.stop(st + 0.55);
     });
+  }
+
+  // Deep resonant boss roar
+  playBossRoar() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    // Sub-bass growl
+    const osc1 = this.ctx.createOscillator();
+    const g1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(48, t);
+    osc1.frequency.exponentialRampToValueAtTime(22, t + 1.2);
+    g1.gain.setValueAtTime(0.55, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+    osc1.connect(g1); g1.connect(this.masterGain);
+    osc1.start(t); osc1.stop(t + 1.4);
+    // Mid growl
+    const osc2 = this.ctx.createOscillator();
+    const g2 = this.ctx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(90, t + 0.1);
+    osc2.frequency.exponentialRampToValueAtTime(30, t + 0.9);
+    g2.gain.setValueAtTime(0.3, t + 0.1);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+    osc2.connect(g2); g2.connect(this.masterGain);
+    osc2.start(t + 0.1); osc2.stop(t + 1.2);
+    // Noise burst
+    const bufSz = Math.floor(this.ctx.sampleRate * 0.3);
+    const buf = this.ctx.createBuffer(1, bufSz, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const gn = this.ctx.createGain();
+    gn.gain.setValueAtTime(0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    noise.connect(gn); gn.connect(this.masterGain);
+    noise.start(t);
   }
 }
 
@@ -5242,11 +5283,341 @@ class WaveManager {
         }
       }, 1200);
     }
+
+    // Every 5 waves: spawn a Zombie Boss!
+    if (this.currentWave > 0 && this.currentWave % 5 === 0) {
+      setTimeout(() => {
+        if (window.gameEngine) window.gameEngine.spawnBoss();
+      }, 3500);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// ZOMBIE BOSS — Apex predator, triggers all-hands defense
+// ══════════════════════════════════════════════════════════
+class ZombieBoss {
+  constructor(side) {
+    this.side = side || (Math.random() < 0.5 ? 'left' : 'right');
+    this.maxHp = 4200 + (window.gameEngine ? window.gameEngine.waveManager.currentWave * 180 : 0);
+    this.hp = this.maxHp;
+    this.speed = 28;
+    this.damage = 38;
+    this.size = 38;
+    this.x = this.side === 'left' ? -60 : 1340;
+    this.y = CONFIG.SURFACE_Y;
+    this.isDead = false;
+    this.hitFlash = 0;
+    this.animTime = 0;
+    this.walkCycle = 0;
+
+    // Special attacks
+    this.slamCooldown = 0;
+    this.slamRadius = 90;
+    this.chargeCooldown = 0;
+    this.isCharging = false;
+    this.chargeSpeed = 0;
+    this.chargeDir = 0;
+    this.minionTimer = 0;
+    this.roarTimer = 0;
+
+    // Rage mode (below 30% HP)
+    this.isEnraged = false;
+    this.enrageFlash = 0;
+
+    // Reward
+    this.reward = { ammo: 250, metal: 120, gunpowder: 80 };
+  }
+
+  update(dt, engine) {
+    if (this.isDead) return;
+    this.animTime += dt;
+    this.walkCycle += dt * 2.5;
+    this.hitFlash = Math.max(0, this.hitFlash - dt * 5);
+    this.slamCooldown = Math.max(0, this.slamCooldown - dt);
+    this.chargeCooldown = Math.max(0, this.chargeCooldown - dt);
+    this.minionTimer += dt;
+    this.roarTimer += dt;
+
+    // Rage: below 30% HP → speed+damage surge
+    if (!this.isEnraged && this.hp < this.maxHp * 0.3) {
+      this.isEnraged = true;
+      this.speed = 52;
+      this.damage = 60;
+      engine.addNotification('💀 BOSS ENRAGED! Speed & damage doubled!', '#FF0000', 4);
+    }
+    this.enrageFlash = this.isEnraged ? (Math.sin(this.animTime * 8) * 0.5 + 0.5) : 0;
+
+    const centerX = 640;
+
+    // ── Charge attack ──────────────────────────────────────────────────────
+    if (this.isCharging) {
+      this.x += this.chargeDir * this.chargeSpeed * dt;
+      this.chargeSpeed *= (1 - dt * 2.5);
+      if (this.chargeSpeed < 5) { this.isCharging = false; this.chargeCooldown = 6; }
+      // Damage fence/turrets if passing through
+      if (engine.particles) {
+        engine.particles.spawnSparks(this.x, this.y - 10, 3, '#FF8C00');
+      }
+    } else {
+      // Move toward center
+      const dx = centerX - this.x;
+      const moveX = Math.sign(dx) * Math.min(Math.abs(dx), this.speed * dt);
+      this.x += moveX;
+
+      // Ground Slam when close to center
+      if (Math.abs(dx) < 120 && this.slamCooldown <= 0) {
+        this._groundSlam(engine);
+      }
+
+      // Charge at defenders
+      if (this.chargeCooldown <= 0 && Math.abs(dx) > 200) {
+        this.isCharging = true;
+        this.chargeDir = Math.sign(dx);
+        this.chargeSpeed = 280;
+        engine.addNotification('💨 BOSS CHARGING!', '#FF6600', 2);
+        if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 20, 20, '#FF4400');
+      }
+    }
+
+    // Spawn minions periodically
+    if (this.minionTimer > 12) {
+      this.minionTimer = 0;
+      const side = this.x < 640 ? 'right' : 'left';
+      for (let i = 0; i < 3; i++) {
+        const minion = new Zombie(Math.random() < 0.4 ? 'runner' : 'shambler', side);
+        engine.zombies.push(minion);
+      }
+      engine.addNotification('🧟 Boss summons minions!', '#8B0000', 2.5);
+    }
+
+    // Boss roar every 8s
+    if (this.roarTimer > 8) {
+      this.roarTimer = 0;
+      if (window.soundSystem && window.soundSystem.playBossRoar) window.soundSystem.playBossRoar();
+      if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 30, 15, '#8B0000');
+    }
+
+    // Damage turrets/barricades on contact
+    const turrets = [engine.leftTurret, engine.rightTurret, ...(engine.constructionSites || []).filter(s => s.built && s.turret).map(s => s.turret)];
+    for (const t of turrets) {
+      if (t && Math.hypot(this.x - t.x, this.y - (t.y || CONFIG.SURFACE_Y)) < 55) {
+        t.health = Math.max(0, (t.health || 100) - this.damage * dt * 0.8);
+      }
+    }
+  }
+
+  _groundSlam(engine) {
+    this.slamCooldown = 7;
+    // Shake / AOE VFX
+    if (engine.particles) {
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        engine.particles.particles.push({
+          x: this.x + Math.cos(a) * (Math.random() * this.slamRadius),
+          y: this.y + Math.sin(a) * (Math.random() * 20) - 8,
+          vx: Math.cos(a) * 4, vy: Math.sin(a) * 4 - 3,
+          life: 0.7, maxLife: 0.7,
+          size: 4 + Math.random() * 5,
+          color: '#6b1111', gravity: 60, type: 'blood'
+        });
+      }
+      engine.particles.spawnSparks(this.x, this.y - 5, 30, '#FF4400');
+    }
+    if (window.soundSystem && window.soundSystem.playExplosion) window.soundSystem.playExplosion();
+    // Damage survivors in range
+    for (const s of engine.survivors) {
+      if (s.isDead) continue;
+      if (Math.hypot(s.x - this.x, s.y - this.y) < this.slamRadius) {
+        s.hp = Math.max(1, s.hp - 22);
+      }
+    }
+    engine.addNotification('💥 BOSS GROUND SLAM!', '#FF4400', 2);
+  }
+
+  takeDamage(amount) {
+    if (this.isDead) return false;
+    this.hp = Math.max(0, this.hp - amount);
+    this.hitFlash = 0.15;
+    if (window.gameEngine && window.gameEngine.particles) {
+      window.gameEngine.particles.spawnBlood(this.x, this.y - this.size * 0.7, 8, '#8B0000');
+    }
+    if (this.hp <= 0) { this.die(); return true; }
+    return false;
+  }
+
+  die() {
+    this.isDead = true;
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    // Massive death VFX
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 8 + 2;
+      engine.particles.particles.push({
+        x: this.x, y: this.y - 20,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 4,
+        life: 1.2, maxLife: 1.2,
+        size: 5 + Math.random() * 8,
+        color: Math.random() < 0.5 ? '#8B0000' : '#FF4400',
+        gravity: 50, type: 'blood'
+      });
+    }
+    engine.particles.spawnSparks(this.x, this.y - 30, 50, '#FFD700');
+    if (window.soundSystem && window.soundSystem.playExplosion) {
+      window.soundSystem.playExplosion();
+      setTimeout(() => window.soundSystem && window.soundSystem.playExplosion(), 300);
+    }
+
+    // Reward
+    engine.resources.ammo = Math.min(CONFIG.RESOURCE_CAPS.ammo, engine.resources.ammo + this.reward.ammo);
+    engine.resources.metal = Math.min(CONFIG.RESOURCE_CAPS.metal, engine.resources.metal + this.reward.metal);
+    engine.resources.gunpowder = Math.min(CONFIG.RESOURCE_CAPS.gunpowder, engine.resources.gunpowder + this.reward.gunpowder);
+    engine.stats.zombiesKilled = (engine.stats.zombiesKilled || 0) + 1;
+
+    // XP to all survivors
+    for (const s of engine.survivors) { if (!s.isDead) { s.addXP && s.addXP(200); } }
+
+    engine.addNotification('🏆 BOSS DEFEATED! +250 Ammo, +120 Metal, +80 Powder! All survivors +200 XP!', '#FFD700', 8);
+
+    // Return survivors to normal duties
+    engine.bossActive = false;
+    engine.boss = null;
+    for (const s of engine.survivors) { s.bossMode = false; }
+    if (window.uiManager && window.uiManager.hideBossBar) window.uiManager.hideBossBar();
+  }
+
+  draw(ctx) {
+    if (this.isDead) return;
+    const x = this.x, y = this.y;
+    const bob = Math.sin(this.walkCycle) * 3.5;
+    const rage = this.enrageFlash;
+
+    ctx.save();
+    if (this.hitFlash > 0) {
+      ctx.filter = `brightness(${3 + this.hitFlash * 6})`;
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 2, this.size * 1.1, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body — massive hulking frame
+    const bodyColor = this.isEnraged
+      ? `rgba(${Math.floor(180 + rage * 75)},20,20,1)`
+      : '#3d0000';
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.roundRect(x - this.size * 0.72, y - this.size * 1.6 + bob, this.size * 1.44, this.size * 1.6, 6);
+    ctx.fill();
+
+    // Torn clothing / exposed rotting flesh patches
+    ctx.fillStyle = '#5a1a00';
+    ctx.fillRect(x - 14, y - this.size + bob, 8, 16);
+    ctx.fillRect(x + 6, y - this.size * 1.3 + bob, 10, 12);
+
+    // Arms — dragging knuckles
+    const armSwing = Math.sin(this.walkCycle) * 18;
+    ctx.strokeStyle = bodyColor; ctx.lineWidth = 10;
+    // Left arm
+    ctx.beginPath();
+    ctx.moveTo(x - this.size * 0.72, y - this.size * 1.1 + bob);
+    ctx.lineTo(x - this.size * 1.3, y - this.size * 0.4 + bob + armSwing * 0.4);
+    ctx.stroke();
+    // Right arm
+    ctx.beginPath();
+    ctx.moveTo(x + this.size * 0.72, y - this.size * 1.1 + bob);
+    ctx.lineTo(x + this.size * 1.3, y - this.size * 0.4 + bob - armSwing * 0.4);
+    ctx.stroke();
+
+    // Clawed hands
+    ctx.fillStyle = '#2a0000';
+    ctx.beginPath(); ctx.arc(x - this.size * 1.3, y - this.size * 0.35 + bob + armSwing * 0.4, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + this.size * 1.3, y - this.size * 0.35 + bob - armSwing * 0.4, 7, 0, Math.PI * 2); ctx.fill();
+
+    // Neck
+    ctx.fillStyle = '#2d0000';
+    ctx.fillRect(x - 9, y - this.size * 1.65 + bob, 18, 12);
+
+    // Head — massive deformed skull
+    ctx.fillStyle = '#4a0a0a';
+    ctx.beginPath();
+    ctx.ellipse(x, y - this.size * 1.95 + bob, this.size * 0.72, this.size * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Skull damage cracks
+    ctx.strokeStyle = '#1a0000'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x - 8, y - this.size * 2.3 + bob); ctx.lineTo(x - 4, y - this.size * 1.8 + bob); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + 5, y - this.size * 2.2 + bob); ctx.lineTo(x + 2, y - this.size * 1.75 + bob); ctx.stroke();
+
+    // Glowing red eyes
+    const eyeGlow = 0.7 + rage * 0.3 + Math.sin(this.animTime * 4) * 0.15;
+    ctx.fillStyle = `rgba(255,0,0,${eyeGlow})`;
+    ctx.shadowColor = '#FF0000'; ctx.shadowBlur = 12 + rage * 10;
+    ctx.beginPath(); ctx.ellipse(x - 11, y - this.size * 2.0 + bob, 7, 5, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 11, y - this.size * 2.0 + bob, 7, 5, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Exposed teeth / jaw
+    ctx.fillStyle = '#ede0c8';
+    for (let i = -3; i <= 3; i++) {
+      ctx.fillRect(x + i * 5 - 2, y - this.size * 1.7 + bob, 3, 6 - Math.abs(i));
+    }
+
+    // Spikes / bone protrusions on shoulders
+    ctx.fillStyle = '#1a0000';
+    for (let i = 0; i < 4; i++) {
+      const sx = x - this.size * 0.72 + i * 8 - 4;
+      ctx.beginPath();
+      ctx.moveTo(sx, y - this.size * 1.6 + bob);
+      ctx.lineTo(sx - 4, y - this.size * 1.85 + bob);
+      ctx.lineTo(sx + 4, y - this.size * 1.85 + bob);
+      ctx.fill();
+    }
+    // Right shoulder spikes
+    for (let i = 0; i < 4; i++) {
+      const sx = x + this.size * 0.72 - i * 8 + 4;
+      ctx.beginPath();
+      ctx.moveTo(sx, y - this.size * 1.6 + bob);
+      ctx.lineTo(sx - 4, y - this.size * 1.85 + bob);
+      ctx.lineTo(sx + 4, y - this.size * 1.85 + bob);
+      ctx.fill();
+    }
+
+    // Charge dust trail
+    if (this.isCharging) {
+      ctx.fillStyle = 'rgba(180,100,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(x - this.chargeDir * 30, y - 10, 40, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // ── Boss HP Bar ─────────────────────────────────────────────────────────
+    const barW = 100, barH = 8;
+    const bx = x - barW / 2, by = y - this.size * 2.4 + bob - 14;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
+    const hpRatio = this.hp / this.maxHp;
+    ctx.fillStyle = hpRatio > 0.6 ? '#27ae60' : hpRatio > 0.3 ? '#f39c12' : '#e74c3c';
+    ctx.fillRect(bx, by, barW * hpRatio, barH);
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 0.8;
+    ctx.strokeRect(bx, by, barW, barH);
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 9px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(`💀 BOSS ${Math.ceil(this.hp)}/${this.maxHp}`, x, by - 3);
   }
 }
 
 window.Zombie = Zombie;
+window.ZombieBoss = ZombieBoss;
 window.WaveManager = WaveManager;
+
 
 
 // --- bunker.js ---
@@ -6921,6 +7292,22 @@ class Survivor {
     this.needState = null;        // 'seeking_food', 'seeking_water', 'resting', 'seeking_medical'
     this.needTimer = 0;
 
+    // ── Combat System (all survivors can shoot) ───────────────────────────
+    this.combatXP = 0;           // Combat experience (auto-upgrades damage)
+    this.combatLevel = 1;        // 1-10: +8% damage per level
+    this.shootTimer = Math.random() * 2; // Staggered initial fire
+    this.bossMode = false;       // True when boss is active → go to surface & shoot
+    this.surfaceX = 0;           // Assigned surface combat position
+    this.surfaceY = CONFIG.SURFACE_Y || 240;
+    this.isShooting = false;
+    this.shootFlash = 0;         // Muzzle flash timer
+
+    // ── Sniper Logistics (supply runner & rest rotation) ──────────────────
+    this.isSniperSupplyRunner = false; // This survivor is bringing food/water to sniper
+    this.sniperSupplyTimer = 0;
+    this.isTakingSniperShift = false;  // This survivor is resting after sniper duty
+    this.sniperShiftTimer = 0;
+
     // Autonomous action timers
     this.sniperTimer = Math.random() * 2;
     this.medicTriageTimer = 0;
@@ -6974,6 +7361,79 @@ class Survivor {
       this.y = room.y + room.height - 12;
       this.targetX = this.x;
       this.targetY = this.y;
+    }
+  }
+
+  // ── Combat System ──────────────────────────────────────────────────────────
+  // Combat damage scales with combatLevel (+8% per level) and role bonus
+  getCombatDamage() {
+    const base = 18 + this.combatLevel * 4; // 22–58 base damage
+    const roleBonus = {
+      'sniper': 3.2, 'marksman': 2.8, 'soldier': 2.0, 'demolitionist': 1.8,
+      'security': 1.6, 'engineer': 1.2, 'builder': 1.1, 'medic': 1.0,
+      'scientist': 0.9, 'farmer': 0.85, 'cook': 0.85, 'porter': 1.0
+    };
+    const rb = roleBonus[(this.role || '').toLowerCase()] || 1.0;
+    return base * rb * (this.getEfficiency ? this.getEfficiency() : 1.0);
+  }
+
+  addCombatXP(amount) {
+    if (this.isDead) return;
+    this.combatXP = (this.combatXP || 0) + amount;
+    const needed = 80 + this.combatLevel * 40;
+    if (this.combatXP >= needed && this.combatLevel < 10) {
+      this.combatXP -= needed;
+      this.combatLevel++;
+      this.say(`🎯 Combat Lvl ${this.combatLevel}!`, 2.5);
+    }
+  }
+
+  // Fire at a target (zombie or boss) — all survivors can shoot
+  shoot(target, engine, dt) {
+    if (this.isDead || !target) return;
+    const role = (this.role || '').toLowerCase();
+    // Fire rate by role (seconds between shots)
+    const isSniper = role.includes('sniper') || role.includes('marksman');
+    const isMedic = role.includes('medic') || role.includes('cook') || role.includes('farm');
+    const fireRate = isSniper ? 1.5 : isMedic ? 2.8 : 1.8;
+
+    this.shootTimer = (this.shootTimer || 0) + dt;
+    if (this.shootTimer < fireRate) return;
+    if (engine.resources.ammo < 1) return;
+
+    this.shootTimer = 0;
+    engine.resources.ammo = Math.max(0, engine.resources.ammo - 1);
+
+    const dmg = this.getCombatDamage();
+    const headshot = isSniper && Math.random() < 0.4;
+    const finalDmg = headshot ? dmg * 1.8 : dmg;
+
+    if (target.takeDamage) target.takeDamage(finalDmg);
+    this.addCombatXP(headshot ? 20 : 10);
+    this.addXP && this.addXP(headshot ? 12 : 6);
+
+    // Muzzle flash VFX
+    this.shootFlash = 0.12;
+    const tx = target.x, ty = target.y - (target.size || 14) * 0.7;
+    if (engine.particles) {
+      const a = Math.atan2(ty - this.y, tx - this.x);
+      engine.particles.spawnSparks(this.x + Math.cos(a) * 8, this.y - 8, 4, '#FFE57F');
+      // Tracer dot
+      engine.particles.particles.push({
+        x: this.x, y: this.y - 8,
+        vx: Math.cos(a) * 180, vy: Math.sin(a) * 180,
+        life: 0.08, maxLife: 0.08, size: 2,
+        color: isSniper ? '#FFD700' : '#FFCC44',
+        gravity: 0, type: 'tracer'
+      });
+      if (headshot && engine.particles.addFloatingText) {
+        engine.particles.addFloatingText(tx, ty - 12, `HEADSHOT -${Math.floor(finalDmg)}`, '#FFD700');
+      }
+    }
+
+    // Audio: staggered so not all fire simultaneously
+    if (Math.random() < 0.4 && window.soundSystem) {
+      isSniper ? window.soundSystem.playSniperShot() : window.soundSystem.playGunshot();
     }
   }
 
@@ -9226,6 +9686,15 @@ class GameEngine {
       }
     }
 
+    // Update Boss (if active)
+    if (this.boss && !this.boss.isDead) {
+      this.boss.update(effectiveDt, this);
+    }
+
+    // Update Survivor Boss Combat & Sniper Logistics
+    this.updateSurvivorCombat(effectiveDt);
+    this.updateSniperLogistics(effectiveDt);
+
     // Update notifications
     for (let i = this.notifications.length - 1; i >= 0; i--) {
       this.notifications[i].life -= effectiveDt;
@@ -9285,9 +9754,17 @@ class GameEngine {
     // 11.5 Draw construction sites & built roof turrets
     this.drawConstructionSites(ctx);
 
+    // 11.6 Draw Perimeter Fence
+    this.drawFence(ctx);
+
     // 12. Draw Zombies
     for (const z of this.zombies) {
       z.draw(ctx);
+    }
+
+    // 12.2 Draw Boss
+    if (this.boss && !this.boss.isDead) {
+      this.boss.draw(ctx);
     }
 
     // 12.5. Draw Surface Refugees Fleeing from Forest
@@ -9305,6 +9782,22 @@ class GameEngine {
       const pulse = (Math.sin(Date.now() / 150) + 1) * 0.5;
       ctx.fillStyle = `rgba(231, 76, 60, ${0.14 * pulse})`;
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    // 14.5 Dark red BOSS ALERT overlay
+    if (this.bossActive && this.boss && !this.boss.isDead) {
+      const bpulse = (Math.sin(Date.now() / 200) + 1) * 0.5;
+      ctx.fillStyle = `rgba(100, 0, 0, ${0.08 + bpulse * 0.08})`;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      // Boss alert text
+      ctx.save();
+      ctx.globalAlpha = 0.5 + bpulse * 0.4;
+      ctx.font = 'bold 22px "Courier New"';
+      ctx.fillStyle = '#FF0000';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#FF0000'; ctx.shadowBlur = 20;
+      ctx.fillText('⚠ ZOMBIE BOSS APPROACHING ⚠', this.canvas.width / 2, 36);
+      ctx.restore();
     }
 
     // 15. Draw Tactical Crosshair if manual aim mode is active
@@ -11113,8 +11606,268 @@ class GameEngine {
     }
   }
 
+  // ── Spawn Zombie Boss ───────────────────────────────────────────────────────
+  spawnBoss() {
+    if (this.bossActive) return; // Only one boss at a time
+    this.boss = new ZombieBoss();
+    this.bossActive = true;
+
+    // All survivors go to boss combat mode
+    const positions = this._assignBossPositions();
+    this.survivors.forEach((s, i) => {
+      if (s.isDead) return;
+      s.bossMode = true;
+      s.surfaceX = positions[i % positions.length];
+      s.surfaceY = CONFIG.SURFACE_Y - 8;
+      s.shootTimer = Math.random() * 1.5; // Stagger fire
+    });
+
+    this.addNotification('💀 ZOMBIE BOSS INCOMING! All survivors to battle stations!', '#FF0000', 6);
+    if (window.soundSystem && window.soundSystem.playBossRoar) window.soundSystem.playBossRoar();
+    if (window.soundSystem && window.soundSystem.playSiren) window.soundSystem.playSiren();
+  }
+
+  _assignBossPositions() {
+    // Spread survivors across the surface in a firing line
+    const count = Math.max(this.survivors.filter(s => !s.isDead).length, 1);
+    const startX = 380, endX = 900;
+    const step = (endX - startX) / Math.max(count - 1, 1);
+    return Array.from({ length: count }, (_, i) => startX + i * step);
+  }
+
+  // ── All-Hands Surface Combat Update ────────────────────────────────────────
+  // When boss is active: ALL survivors surface and shoot at boss
+  // When no boss: survivors with bossMode=true return inside
+  updateSurvivorCombat(dt) {
+    if (!this.boss || this.boss.isDead) {
+      // Boss gone — call survivors back inside
+      if (this.bossActive) {
+        this.bossActive = false;
+        for (const s of this.survivors) { s.bossMode = false; }
+      }
+      return;
+    }
+
+    const target = this.boss;
+    const surfaceY = CONFIG.SURFACE_Y - 8;
+
+    for (const s of this.survivors) {
+      if (s.isDead || !s.bossMode) continue;
+
+      // Move to assigned surface combat position
+      const dx = (s.surfaceX || 640) - s.x;
+      const dy = surfaceY - s.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 10) {
+        const spd = (s.speed || 52) * 1.4; // Sprint to position
+        s.x += (dx / dist) * spd * dt;
+        s.y += (dy / dist) * spd * dt;
+        s.isMoving = true;
+        s.facing = dx > 0 ? 1 : -1;
+      } else {
+        s.isMoving = false;
+        s.facing = target.x > s.x ? 1 : -1;
+        // Shoot at boss
+        s.shoot(target, this, dt);
+      }
+
+      // Decay shoot flash
+      s.shootFlash = Math.max(0, (s.shootFlash || 0) - dt * 8);
+    }
+  }
+
+  // ── Sniper Logistics (food/water delivery + rest rotation) ─────────────────
+  updateSniperLogistics(dt) {
+    if (!this.survivors || this.bossActive) return;
+
+    const sniperSurvivor = this.survivors.find(s =>
+      !s.isDead && (s.id === 'jackson' || (s.role && s.role.toLowerCase().includes('sniper')))
+    );
+    if (!sniperSurvivor) return;
+
+    const sniperX = 662, sniperY = 56;
+
+    // Tick sniper supply timer
+    this._sniperSupplyTimer = (this._sniperSupplyTimer || 0) + dt;
+
+    // Every 45s: send a supply runner with food/water
+    if (this._sniperSupplyTimer > 45) {
+      this._sniperSupplyTimer = 0;
+
+      // Find a free survivor who isn't the sniper
+      const runner = this.survivors.find(s =>
+        !s.isDead && !s.isBusy && s.id !== sniperSurvivor.id &&
+        !s.bossMode && s.specialty !== 'builder'
+      );
+
+      if (runner && this.resources.food >= 5 && this.resources.water >= 5) {
+        this.resources.food = Math.max(0, this.resources.food - 5);
+        this.resources.water = Math.max(0, this.resources.water - 5);
+        runner.isBusy = true;
+        runner.isSniperSupplyRunner = true;
+        runner.sniperSupplyTimer = 0;
+        runner._supplyTarget = { x: sniperX, y: sniperY };
+        runner.say('📦 Sniper supply run!', 3);
+        this.addNotification(`🎯 ${runner.name} delivering supplies to ${sniperSurvivor.name.split(' ')[0]}!`, '#00D2FF', 3);
+      }
+    }
+
+    // Update active supply runners
+    for (const s of this.survivors) {
+      if (!s.isSniperSupplyRunner) continue;
+      s.sniperSupplyTimer += dt;
+
+      const tx = s._supplyTarget ? s._supplyTarget.x : sniperX;
+      const ty = s._supplyTarget ? s._supplyTarget.y : sniperY;
+      const dx = tx - s.x, dy = ty - s.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 12) {
+        const spd = s.speed || 52;
+        s.x += (dx / dist) * spd * dt;
+        s.y += (dy / dist) * spd * dt;
+        s.isMoving = true;
+      } else {
+        // Delivered! Restore sniper needs
+        sniperSurvivor.hunger = Math.min(100, (sniperSurvivor.hunger || 50) + 25);
+        sniperSurvivor.thirst = Math.min(100, (sniperSurvivor.thirst || 50) + 30);
+        if (this.particles) this.particles.spawnSparks(tx, ty, 6, '#00FF88');
+        s.say('✅ Delivered!', 2);
+        s.isSniperSupplyRunner = false;
+        s.isBusy = false;
+        s._supplyTarget = null;
+        // Return to assigned room
+        const room = this.getRoom(s.assignedRoom);
+        if (room) { s.targetX = room.x + 30; s.targetY = room.y + room.height - 12; }
+      }
+
+      // Timeout safety
+      if (s.sniperSupplyTimer > 25) {
+        s.isSniperSupplyRunner = false;
+        s.isBusy = false;
+        s._supplyTarget = null;
+      }
+    }
+
+    // Sniper rest rotation: every 120s, swap sniper out for a quick rest
+    this._sniperRestTimer = (this._sniperRestTimer || 0) + dt;
+    if (this._sniperRestTimer > 120 && sniperSurvivor.fatigue > 50) {
+      this._sniperRestTimer = 0;
+      sniperSurvivor.fatigue = Math.max(0, sniperSurvivor.fatigue - 45);
+      sniperSurvivor.say('💤 Brief rest...', 3);
+      this.addNotification(`😴 ${sniperSurvivor.name.split(' ')[0]} taking a short rest at the watchtower.`, '#9B59B6', 3);
+    }
+  }
+
+  // ── Perimeter Fence Drawing ─────────────────────────────────────────────────
+  // Wooden palisade + barbed wire around the compound perimeter
+  drawFence(ctx) {
+    const groundY = CONFIG.SURFACE_Y;
+    // Fence spans from left treeline to right treeline, in front of building
+    const fenceSegments = [
+      { x1: 220, x2: 450, y: groundY },  // Left wing
+      { x1: 830, x2: 1060, y: groundY }, // Right wing
+    ];
+    // Posts every 22px
+    const POST_W = 6, POST_H = 28;
+
+    for (const seg of fenceSegments) {
+      ctx.save();
+      // Palisade planks
+      for (let px = seg.x1; px <= seg.x2; px += 22) {
+        // Post
+        const postGrad = ctx.createLinearGradient(px, groundY - POST_H, px + POST_W, groundY);
+        postGrad.addColorStop(0, '#8B6914');
+        postGrad.addColorStop(0.4, '#A0784E');
+        postGrad.addColorStop(1, '#6B4A1A');
+        ctx.fillStyle = postGrad;
+        ctx.fillRect(px, groundY - POST_H, POST_W, POST_H);
+        // Pointed tip
+        ctx.fillStyle = '#8B6914';
+        ctx.beginPath();
+        ctx.moveTo(px, groundY - POST_H);
+        ctx.lineTo(px + POST_W / 2, groundY - POST_H - 7);
+        ctx.lineTo(px + POST_W, groundY - POST_H);
+        ctx.fill();
+        // Wood grain lines
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(px + 2, groundY - POST_H + 3);
+        ctx.lineTo(px + 2, groundY - 3);
+        ctx.stroke();
+      }
+
+      // Horizontal rails connecting posts
+      ctx.strokeStyle = '#7A5C2E';
+      ctx.lineWidth = 3.5;
+      // Upper rail
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, groundY - POST_H * 0.72);
+      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.72);
+      ctx.stroke();
+      // Lower rail
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, groundY - POST_H * 0.35);
+      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.35);
+      ctx.stroke();
+
+      // Barbed wire on top rail
+      ctx.strokeStyle = '#C0C0C0';
+      ctx.lineWidth = 1;
+      for (let bx = seg.x1 + 4; bx < seg.x2; bx += 14) {
+        const by = groundY - POST_H * 0.72 - 4;
+        ctx.beginPath();
+        ctx.moveTo(bx, by + 4);
+        ctx.lineTo(bx + 4, by);
+        ctx.lineTo(bx + 8, by + 4);
+        ctx.lineTo(bx + 12, by);
+        ctx.stroke();
+        // Barb spikes
+        ctx.beginPath();
+        ctx.moveTo(bx + 4, by);
+        ctx.lineTo(bx + 2, by - 3);
+        ctx.moveTo(bx + 4, by);
+        ctx.lineTo(bx + 6, by - 3);
+        ctx.stroke();
+      }
+
+      // Warning sign on fence
+      const midX = (seg.x1 + seg.x2) / 2;
+      ctx.fillStyle = '#F39C12';
+      ctx.fillRect(midX - 12, groundY - POST_H - 14, 24, 14);
+      ctx.strokeStyle = '#E67E22'; ctx.lineWidth = 1;
+      ctx.strokeRect(midX - 12, groundY - POST_H - 14, 24, 14);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = 'bold 7px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚠ KEEP OUT', midX, groundY - POST_H - 5);
+
+      ctx.restore();
+    }
+
+    // Gate posts on either side of cabin entrance
+    const GATE_W = 8, GATE_H = 34;
+    const gatePositions = [{ x: 448 }, { x: 830 }]; // Just outside fence gaps
+    for (const gp of gatePositions) {
+      ctx.save();
+      const gg = ctx.createLinearGradient(gp.x, groundY - GATE_H, gp.x + GATE_W, groundY);
+      gg.addColorStop(0, '#555');
+      gg.addColorStop(0.5, '#888');
+      gg.addColorStop(1, '#444');
+      ctx.fillStyle = gg;
+      ctx.fillRect(gp.x, groundY - GATE_H, GATE_W, GATE_H);
+      // Metal cap
+      ctx.fillStyle = '#777';
+      ctx.fillRect(gp.x - 2, groundY - GATE_H - 4, GATE_W + 4, 5);
+      ctx.restore();
+    }
+  }
+
   // Update roof searchlights tracking approaching zombies or sweeping dark forest
   updateSearchlights(dt) {
+
     const isNightOrDusk = this.dayTime < 6.5 || this.dayTime >= 18.0 || this.waveManager.isHordeActive;
     if (!isNightOrDusk) return;
 

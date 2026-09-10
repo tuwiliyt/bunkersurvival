@@ -784,6 +784,45 @@ class SoundSystem {
       osc.start(st); osc.stop(st + 0.55);
     });
   }
+
+  // Deep resonant boss roar
+  playBossRoar() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    // Sub-bass growl
+    const osc1 = this.ctx.createOscillator();
+    const g1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(48, t);
+    osc1.frequency.exponentialRampToValueAtTime(22, t + 1.2);
+    g1.gain.setValueAtTime(0.55, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+    osc1.connect(g1); g1.connect(this.masterGain);
+    osc1.start(t); osc1.stop(t + 1.4);
+    // Mid growl
+    const osc2 = this.ctx.createOscillator();
+    const g2 = this.ctx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(90, t + 0.1);
+    osc2.frequency.exponentialRampToValueAtTime(30, t + 0.9);
+    g2.gain.setValueAtTime(0.3, t + 0.1);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+    osc2.connect(g2); g2.connect(this.masterGain);
+    osc2.start(t + 0.1); osc2.stop(t + 1.2);
+    // Noise burst
+    const bufSz = Math.floor(this.ctx.sampleRate * 0.3);
+    const buf = this.ctx.createBuffer(1, bufSz, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const gn = this.ctx.createGain();
+    gn.gain.setValueAtTime(0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    noise.connect(gn); gn.connect(this.masterGain);
+    noise.start(t);
+  }
 }
 
 window.soundSystem = new SoundSystem();
