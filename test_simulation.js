@@ -283,7 +283,7 @@ engine.resources.metal = 200;
 engine.resources.gunpowder = 100;
 const upgraded = engine.leftTurret.upgrade();
 assert("Left turret upgrade to Tier 2 (Twin Autocannon) succeeds", upgraded && engine.leftTurret.tierIndex === 1);
-assert("Turret maxAmmo scales with tier", engine.leftTurret.stats.maxAmmo === 200);
+assert("Turret maxAmmo scales with tier", engine.leftTurret.stats.maxAmmo === 220);
 
 // Test Manual Crosshair Aim Mode
 engine.toggleManualAim();
@@ -568,14 +568,14 @@ console.log("\n--- 8. AUDITING BOSS ENCOUNTER, ALL-HANDS DEFENSE & LOGISTICS ---
 // 1. ZombieBoss class exists and initializes
 assert("ZombieBoss class exists", typeof sandbox.ZombieBoss === 'function');
 const boss = new sandbox.ZombieBoss('right');
-assert("ZombieBoss has massive HP (>= 4200)", boss.hp >= 4200);
-assert("ZombieBoss has high damage and slam ability", boss.damage >= 35 && boss.slamRadius > 0);
+assert("ZombieBoss has massive HP (>= 2200)", boss.hp >= 2200);
+assert("ZombieBoss has high damage and slam ability", boss.damage >= 18 && boss.slamRadius > 0);
 
 // 2. Boss takes damage and triggers rage mode
 boss.takeDamage(boss.maxHp * 0.75); // down to 25% HP
 assert("Boss HP drops on damage", boss.hp < boss.maxHp);
 boss.update(0.1, engine);
-assert("Boss enrages below 30% HP with increased speed", boss.isEnraged && boss.speed > 30);
+assert("Boss enrages below 30% HP with increased speed", boss.isEnraged && boss.speed > 25);
 
 // 3. Survivor Combat System: getCombatDamage & auto-upgrades
 const soldier = engine.survivors[0];
@@ -630,8 +630,15 @@ engine._sniperRestTimer = 130;
 engine.updateSniperLogistics(0.1);
 assert("Sniper takes brief rest rotation and recovers fatigue", jackson.fatigue < 85);
 
-// 9. Perimeter Fence exists in engine
+// 9. Perimeter Fence with Hitpoints & Damage Absorption
 assert("GameEngine has drawFence method", typeof engine.drawFence === 'function');
+assert("GameEngine has perimeter fences with 350 HP", engine.fences && engine.fences.left.hp === 350);
+engine.damageFence('left', 50);
+assert("Fence absorbs damage to protect base", engine.fences.left.hp === 300);
+engine.resources.metal = 20;
+engine.repairFence('left');
+assert("Fence can be repaired with scrap metal", engine.fences.left.hp === 350);
+
 
 console.log("\n===============================================================================");
 console.log(`🎉 ALL ${passedTests}/${totalTests} AUDIT TESTS & SIMULATION CHECKS PASSED PERFECTLY!`);

@@ -1,15 +1,23 @@
 // Automated Defensive Turrets System with Target Prioritization, Armor Penetration, and Manual Crosshair Control
 class Turret {
-  constructor(side, x, y) {
-    this.side = side; // 'left' or 'right'
-    this.x = x;
-    this.y = y;
+  constructor(sideOrOpts, x, y) {
+    if (typeof sideOrOpts === 'object' && sideOrOpts !== null) {
+      this.side = sideOrOpts.side || 'left';
+      this.x = sideOrOpts.x;
+      this.y = sideOrOpts.y;
+      this.label = sideOrOpts.label || '';
+    } else {
+      this.side = sideOrOpts;
+      this.x = x;
+      this.y = y;
+      this.label = '';
+    }
     this.tierIndex = 0;
     this.stats = { ...CONFIG.TURRET_TIERS[0] };
     this.ammo = this.stats.maxAmmo;
     this.health = 100;
     this.maxHealth = 100;
-    this.angle = side === 'left' ? Math.PI : 0; // Default facing outward
+    this.angle = this.side === 'left' ? Math.PI : 0; // Default facing outward
     this.targetAngle = this.angle;
     this.target = null;
     this.cooldown = 0;

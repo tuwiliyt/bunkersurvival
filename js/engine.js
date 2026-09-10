@@ -68,6 +68,12 @@ class GameEngine {
     this.sniperAimAngle = Math.PI * 0.15;
     this.sniperTarget = null;
 
+    // ── Fortified Perimeter Defenses (Palisade Wood & Barbed Wire) ─────────
+    this.fences = {
+      left: { x1: 220, x2: 450, hp: 350, maxHp: 350, label: 'West Palisade' },
+      right: { x1: 830, x2: 1060, hp: 350, maxHp: 350, label: 'East Palisade' }
+    };
+
     // ── Construction System ─────────────────────────────────────────────────
     // Two additional roof turrets built autonomously when resources allow
     this.constructionSites = [
@@ -2593,29 +2599,37 @@ class GameEngine {
     }
   }
 
-  // ── Perimeter Fence Drawing ─────────────────────────────────────────────────
-  // Wooden palisade + barbed wire around the compound perimeter
+  // ── Perimeter Fence Drawing & Damage Handling ──────────────────────────────
   drawFence(ctx) {
     const groundY = CONFIG.SURFACE_Y;
-    // Fence spans from left treeline to right treeline, in front of building
-    const fenceSegments = [
-      { x1: 220, x2: 450, y: groundY },  // Left wing
-      { x1: 830, x2: 1060, y: groundY }, // Right wing
+    const fenceDefs = [
+      { side: 'left', x1: 220, x2: 450, data: this.fences ? this.fences.left : null },
+      { side: 'right', x1: 830, x2: 1060, data: this.fences ? this.fences.right : null },
     ];
-    // Posts every 22px
     const POST_W = 6, POST_H = 28;
 
-    for (const seg of fenceSegments) {
+    for (const def of fenceDefs) {
+      const f = def.data;
+      const isBreached = f && f.hp <= 0;
       ctx.save();
+
       // Palisade planks
-      for (let px = seg.x1; px <= seg.x2; px += 22) {
-        // Post
+      for (let px = def.x1; px <= def.x2; px += 22) {
+        if (isBreached) {
+          // Splintered, broken stumps
+          ctx.fillStyle = '#4a3319';
+          ctx.fillRect(px, groundY - 10, POST_W, 10);
+          continue;
+        }
+
+        // Intact post
         const postGrad = ctx.createLinearGradient(px, groundY - POST_H, px + POST_W, groundY);
         postGrad.addColorStop(0, '#8B6914');
         postGrad.addColorStop(0.4, '#A0784E');
         postGrad.addColorStop(1, '#6B4A1A');
         ctx.fillStyle = postGrad;
         ctx.fillRect(px, groundY - POST_H, POST_W, POST_H);
+
         // Pointed tip
         ctx.fillStyle = '#8B6914';
         ctx.beginPath();
@@ -2623,6 +2637,7 @@ class GameEngine {
         ctx.lineTo(px + POST_W / 2, groundY - POST_H - 7);
         ctx.lineTo(px + POST_W, groundY - POST_H);
         ctx.fill();
+
         // Wood grain lines
         ctx.strokeStyle = 'rgba(0,0,0,0.18)';
         ctx.lineWidth = 0.6;
@@ -2632,57 +2647,81 @@ class GameEngine {
         ctx.stroke();
       }
 
-      // Horizontal rails connecting posts
-      ctx.strokeStyle = '#7A5C2E';
-      ctx.lineWidth = 3.5;
-      // Upper rail
-      ctx.beginPath();
-      ctx.moveTo(seg.x1, groundY - POST_H * 0.72);
-      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.72);
-      ctx.stroke();
-      // Lower rail
-      ctx.beginPath();
-      ctx.moveTo(seg.x1, groundY - POST_H * 0.35);
-      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.35);
-      ctx.stroke();
+      if (!isBreached) {
+        // Horizontal rails connecting posts
+        ctx.strokeStyle = '#7A5C2E';
+        ctx.lineWidth = 3.5;
+        // Upper rail
+        ctx.beginPath();
+        ctx.moveTo(def.x1, groundY - POST_H * 0.72);
+        ctx.lineTo(def.x2 + POST_W, groundY - POST_H * 0.72);
+        ctx.stroke();
+        // Lower rail
+        ctx.beginPath();
+        ctx.moveTo(def.x1, groundY - POST_H * 0.35);
+        ctx.lineTo(def.x2 + POST_W, groundY - POST_H * 0.35);
+        ctx.stroke();
 
-      // Barbed wire on top rail
-      ctx.strokeStyle = '#C0C0C0';
-      ctx.lineWidth = 1;
-      for (let bx = seg.x1 + 4; bx < seg.x2; bx += 14) {
-        const by = groundY - POST_H * 0.72 - 4;
-        ctx.beginPath();
-        ctx.moveTo(bx, by + 4);
-        ctx.lineTo(bx + 4, by);
-        ctx.lineTo(bx + 8, by + 4);
-        ctx.lineTo(bx + 12, by);
-        ctx.stroke();
-        // Barb spikes
-        ctx.beginPath();
-        ctx.moveTo(bx + 4, by);
-        ctx.lineTo(bx + 2, by - 3);
-        ctx.moveTo(bx + 4, by);
-        ctx.lineTo(bx + 6, by - 3);
-        ctx.stroke();
+        // Barbed wire on top rail
+        ctx.strokeStyle = '#C0C0C0';
+        ctx.lineWidth = 1;
+        for (let bx = def.x1 + 4; bx < def.x2; bx += 14) {
+          const by = groundY - POST_H * 0.72 - 4;
+          ctx.beginPath();
+          ctx.moveTo(bx, by + 4);
+          ctx.lineTo(bx + 4, by);
+          ctx.lineTo(bx + 8, by + 4);
+          ctx.lineTo(bx + 12, by);
+          ctx.stroke();
+          // Barb spikes
+          ctx.beginPath();
+          ctx.moveTo(bx + 4, by);
+          ctx.lineTo(bx + 2, by - 3);
+          ctx.moveTo(bx + 4, by);
+          ctx.lineTo(bx + 6, by - 3);
+          ctx.stroke();
+        }
+
+        // Warning sign on fence
+        const midX = (def.x1 + def.x2) / 2;
+        ctx.fillStyle = '#F39C12';
+        ctx.fillRect(midX - 12, groundY - POST_H - 14, 24, 14);
+        ctx.strokeStyle = '#E67E22'; ctx.lineWidth = 1;
+        ctx.strokeRect(midX - 12, groundY - POST_H - 14, 24, 14);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 7px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠ KEEP OUT', midX, groundY - POST_H - 5);
+
+        // Fence Health Bar (if damaged)
+        if (f && f.hp < f.maxHp) {
+          const barW = 50, barH = 4;
+          const barX = midX - barW / 2;
+          const barY = groundY - POST_H - 22;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+          const ratio = Math.max(0, f.hp / f.maxHp);
+          ctx.fillStyle = ratio > 0.5 ? '#2ecc71' : ratio > 0.25 ? '#f39c12' : '#e74c3c';
+          ctx.fillRect(barX, barY, barW * ratio, barH);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 7px monospace';
+          ctx.fillText(`FENCE: ${Math.ceil(f.hp)}/${f.maxHp}`, midX, barY - 3);
+        }
+      } else {
+        // Breached label
+        const midX = (def.x1 + def.x2) / 2;
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡ FENCE BREACHED', midX, groundY - 16);
       }
-
-      // Warning sign on fence
-      const midX = (seg.x1 + seg.x2) / 2;
-      ctx.fillStyle = '#F39C12';
-      ctx.fillRect(midX - 12, groundY - POST_H - 14, 24, 14);
-      ctx.strokeStyle = '#E67E22'; ctx.lineWidth = 1;
-      ctx.strokeRect(midX - 12, groundY - POST_H - 14, 24, 14);
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = 'bold 7px "Courier New"';
-      ctx.textAlign = 'center';
-      ctx.fillText('⚠ KEEP OUT', midX, groundY - POST_H - 5);
 
       ctx.restore();
     }
 
     // Gate posts on either side of cabin entrance
     const GATE_W = 8, GATE_H = 34;
-    const gatePositions = [{ x: 448 }, { x: 830 }]; // Just outside fence gaps
+    const gatePositions = [{ x: 448 }, { x: 830 }];
     for (const gp of gatePositions) {
       ctx.save();
       const gg = ctx.createLinearGradient(gp.x, groundY - GATE_H, gp.x + GATE_W, groundY);
@@ -2697,6 +2736,34 @@ class GameEngine {
       ctx.restore();
     }
   }
+
+  damageFence(side, amount) {
+    const f = this.fences && this.fences[side];
+    if (!f || f.hp <= 0) return;
+    f.hp = Math.max(0, f.hp - amount);
+    const fx = side === 'left' ? 435 : 845;
+    if (this.particles) {
+      this.particles.spawnSparks(fx, CONFIG.SURFACE_Y - 14, 6, '#d35400');
+    }
+    if (f.hp <= 0) {
+      this.addNotification(`⚠️ ${f.label} BREACHED! Barricade destroyed!`, 'danger', 4);
+      if (window.soundSystem && window.soundSystem.playExplosion) window.soundSystem.playExplosion();
+    }
+  }
+
+  repairFence(side) {
+    const f = this.fences && this.fences[side];
+    if (!f || f.hp >= f.maxHp || this.resources.metal < 8) return false;
+    this.resources.metal -= 8;
+    f.hp = Math.min(f.maxHp, f.hp + 60);
+    const fx = side === 'left' ? 435 : 845;
+    if (this.particles) {
+      this.particles.spawnSparks(fx, CONFIG.SURFACE_Y - 14, 8, '#2ecc71');
+      this.particles.addFloatingText('+60 FENCE HP', fx - 25, CONFIG.SURFACE_Y - 30, '#2ecc71');
+    }
+    return true;
+  }
+
 
   // Update roof searchlights tracking approaching zombies or sweeping dark forest
   updateSearchlights(dt) {

@@ -141,19 +141,19 @@ const CONFIG = {
 
   // Turret Level Stats
   TURRET_TIERS: [
-    { level: 1, name: 'Sentry Gun 9mm', damage: 24, fireRate: 0.22, range: 340, maxAmmo: 100, upgradeCost: { metal: 50 } },
-    { level: 2, name: 'Twin Autocannon', damage: 42, fireRate: 0.15, range: 400, maxAmmo: 200, upgradeCost: { metal: 120, gunpowder: 40 } },
-    { level: 3, name: 'Vulcan Minigun', damage: 62, fireRate: 0.08, range: 480, maxAmmo: 400, upgradeCost: { metal: 220, gunpowder: 80 } },
-    { level: 4, name: 'Heavy Plasma Cannon', damage: 180, fireRate: 0.35, range: 560, maxAmmo: 600, upgradeCost: null }
+    { level: 1, name: 'Sentry Gun 9mm', damage: 28, fireRate: 0.20, range: 390, maxAmmo: 120, upgradeCost: { metal: 50 } },
+    { level: 2, name: 'Twin Autocannon', damage: 46, fireRate: 0.14, range: 440, maxAmmo: 220, upgradeCost: { metal: 120, gunpowder: 40 } },
+    { level: 3, name: 'Vulcan Minigun', damage: 68, fireRate: 0.07, range: 500, maxAmmo: 450, upgradeCost: { metal: 220, gunpowder: 80 } },
+    { level: 4, name: 'Heavy Plasma Cannon', damage: 195, fireRate: 0.32, range: 580, maxAmmo: 650, upgradeCost: null }
   ],
 
-  // Zombie Types
+  // Zombie Types (Balanced for engaging survival experience)
   ZOMBIE_TYPES: {
-    shambler: { name: 'Walker', hp: 55, speed: 22, damage: 8, color: '#4a754e', size: 16, reward: { metal: 3, gunpowder: 2 } },
-    runner: { name: 'Feral Runner', hp: 35, speed: 58, damage: 12, color: '#883b3b', size: 14, reward: { metal: 2, gunpowder: 3 } },
-    armored: { name: 'Riot Armored', hp: 140, speed: 18, damage: 15, color: '#3f4e56', size: 18, reward: { metal: 8, gunpowder: 4 } },
-    spitter: { name: 'Acid Spitter', hp: 50, speed: 24, range: 250, damage: 14, color: '#68882d', size: 15, reward: { metal: 4, gunpowder: 6 } },
-    brute: { name: 'Goliath Brute', hp: 450, speed: 14, damage: 35, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
+    shambler: { name: 'Walker', hp: 38, speed: 20, damage: 6, color: '#4a754e', size: 16, reward: { metal: 3, gunpowder: 2 } },
+    runner: { name: 'Feral Runner', hp: 24, speed: 44, damage: 8, color: '#883b3b', size: 14, reward: { metal: 2, gunpowder: 3 } },
+    armored: { name: 'Riot Armored', hp: 80, speed: 16, damage: 10, color: '#3f4e56', size: 18, reward: { metal: 8, gunpowder: 4 } },
+    spitter: { name: 'Acid Spitter', hp: 34, speed: 20, range: 210, damage: 8, color: '#68882d', size: 15, reward: { metal: 4, gunpowder: 6 } },
+    brute: { name: 'Goliath Brute', hp: 240, speed: 12, damage: 18, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
   },
 
   // Population & Living Quarters

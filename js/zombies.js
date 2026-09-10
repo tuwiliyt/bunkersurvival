@@ -164,6 +164,33 @@ class Zombie {
       return;
     }
 
+    // Check if reached perimeter fence (Extra security!)
+    const engine = window.gameEngine;
+    if (engine && engine.fences) {
+      if (this.side === 'left' && engine.fences.left && engine.fences.left.hp > 0 && this.x >= 420 && this.x <= 450) {
+        if (this.attackCooldown <= 0) {
+          this.attackCooldown = this.attackRate;
+          engine.damageFence('left', this.damage);
+          this.takeDamage(4); // Barbed wire counter-damage
+          if (window.soundSystem && window.soundSystem.playZombieShriek) {
+            window.soundSystem.playZombieShriek();
+          }
+        }
+        return;
+      }
+      if (this.side === 'right' && engine.fences.right && engine.fences.right.hp > 0 && this.x <= 860 && this.x >= 830) {
+        if (this.attackCooldown <= 0) {
+          this.attackCooldown = this.attackRate;
+          engine.damageFence('right', this.damage);
+          this.takeDamage(4); // Barbed wire counter-damage
+          if (window.soundSystem && window.soundSystem.playZombieShriek) {
+            window.soundSystem.playZombieShriek();
+          }
+        }
+        return;
+      }
+    }
+
     // Check if reached turret or barricade
     const inMeleeRange = distToTurret <= 18 || distToHouse <= 45;
     if (inMeleeRange) {
@@ -873,10 +900,10 @@ class WaveManager {
 
     // Build tactical wave composition
     this.hordeSpawnQueue = [];
-    const count = 7 + this.currentWave * 4;
+    const count = 4 + this.currentWave * 3;
 
-    // Vanguard: armored tanks soak initial fire
-    if (this.currentWave >= 2) {
+    // Vanguard: armored tanks soak initial fire (from wave 3+)
+    if (this.currentWave >= 3) {
       this.hordeSpawnQueue.push({ type: 'armored', side: 'left' });
       this.hordeSpawnQueue.push({ type: 'armored', side: 'right' });
     }
@@ -886,23 +913,22 @@ class WaveManager {
       let type = 'shambler';
       const roll = Math.random();
 
-      if (this.currentWave >= 1 && roll < 0.40) {
-        type = 'runner'; // Fast flanking runners
-      } else if (this.currentWave >= 2 && roll > 0.80) {
+      if (this.currentWave >= 1 && roll < 0.25) {
+        type = 'runner'; // Fast flanking runners (25%)
+      } else if (this.currentWave >= 2 && roll > 0.82) {
         type = 'armored';
       } else if (this.currentWave >= 3 && roll > 0.88) {
         type = 'spitter'; // Acid artillery
-      } else if (this.currentWave >= 4 && roll > 0.95) {
+      } else if (this.currentWave >= 4 && roll > 0.94) {
         type = 'brute';
       }
 
       this.hordeSpawnQueue.push({ type, side });
     }
 
-    // Guaranteed Brutes on every 3rd wave
-    if (this.currentWave % 3 === 0) {
-      this.hordeSpawnQueue.push({ type: 'brute', side: 'left' });
-      this.hordeSpawnQueue.push({ type: 'brute', side: 'right' });
+    // Guaranteed Brute on every 4th wave
+    if (this.currentWave >= 4 && this.currentWave % 4 === 0) {
+      this.hordeSpawnQueue.push({ type: 'brute', side: Math.random() > 0.5 ? 'left' : 'right' });
     }
   }
 
@@ -956,10 +982,10 @@ class WaveManager {
 class ZombieBoss {
   constructor(side) {
     this.side = side || (Math.random() < 0.5 ? 'left' : 'right');
-    this.maxHp = 4200 + (window.gameEngine ? window.gameEngine.waveManager.currentWave * 180 : 0);
+    this.maxHp = 2200 + (window.gameEngine ? window.gameEngine.waveManager.currentWave * 100 : 0);
     this.hp = this.maxHp;
-    this.speed = 28;
-    this.damage = 38;
+    this.speed = 18;
+    this.damage = 20;
     this.size = 38;
     this.x = this.side === 'left' ? -60 : 1340;
     this.y = CONFIG.SURFACE_Y;
@@ -999,9 +1025,9 @@ class ZombieBoss {
     // Rage: below 30% HP → speed+damage surge
     if (!this.isEnraged && this.hp < this.maxHp * 0.3) {
       this.isEnraged = true;
-      this.speed = 52;
-      this.damage = 60;
-      engine.addNotification('💀 BOSS ENRAGED! Speed & damage doubled!', '#FF0000', 4);
+      this.speed = 32;
+      this.damage = 32;
+      engine.addNotification('💀 BOSS ENRAGED! Speed & fury surging!', '#FF0000', 4);
     }
     this.enrageFlash = this.isEnraged ? (Math.sin(this.animTime * 8) * 0.5 + 0.5) : 0;
 
@@ -1011,8 +1037,7 @@ class ZombieBoss {
     if (this.isCharging) {
       this.x += this.chargeDir * this.chargeSpeed * dt;
       this.chargeSpeed *= (1 - dt * 2.5);
-      if (this.chargeSpeed < 5) { this.isCharging = false; this.chargeCooldown = 6; }
-      // Damage fence/turrets if passing through
+      if (this.chargeSpeed < 5) { this.isCharging = false; this.chargeCooldown = 8; }
       if (engine.particles) {
         engine.particles.spawnSparks(this.x, this.y - 10, 3, '#FF8C00');
       }
@@ -1031,21 +1056,21 @@ class ZombieBoss {
       if (this.chargeCooldown <= 0 && Math.abs(dx) > 200) {
         this.isCharging = true;
         this.chargeDir = Math.sign(dx);
-        this.chargeSpeed = 280;
+        this.chargeSpeed = 130;
         engine.addNotification('💨 BOSS CHARGING!', '#FF6600', 2);
         if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 20, 20, '#FF4400');
       }
     }
 
-    // Spawn minions periodically
-    if (this.minionTimer > 12) {
+    // Spawn minions periodically (2 minions every 18s)
+    if (this.minionTimer > 18) {
       this.minionTimer = 0;
       const side = this.x < 640 ? 'right' : 'left';
-      for (let i = 0; i < 3; i++) {
-        const minion = new Zombie(Math.random() < 0.4 ? 'runner' : 'shambler', side);
+      for (let i = 0; i < 2; i++) {
+        const minion = new Zombie(Math.random() < 0.3 ? 'runner' : 'shambler', side);
         engine.zombies.push(minion);
       }
-      engine.addNotification('🧟 Boss summons minions!', '#8B0000', 2.5);
+      engine.addNotification('🧟 Boss summons reinforcements!', '#8B0000', 2.5);
     }
 
     // Boss roar every 8s
@@ -1055,17 +1080,17 @@ class ZombieBoss {
       if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 30, 15, '#8B0000');
     }
 
-    // Damage turrets/barricades on contact
+    // Damage turrets on contact (moderate damage rate)
     const turrets = [engine.leftTurret, engine.rightTurret, ...(engine.constructionSites || []).filter(s => s.built && s.turret).map(s => s.turret)];
     for (const t of turrets) {
       if (t && Math.hypot(this.x - t.x, this.y - (t.y || CONFIG.SURFACE_Y)) < 55) {
-        t.health = Math.max(0, (t.health || 100) - this.damage * dt * 0.8);
+        t.health = Math.max(0, (t.health || 100) - this.damage * dt * 0.35);
       }
     }
   }
 
   _groundSlam(engine) {
-    this.slamCooldown = 7;
+    this.slamCooldown = 10;
     // Shake / AOE VFX
     if (engine.particles) {
       for (let i = 0; i < 24; i++) {
@@ -1082,11 +1107,11 @@ class ZombieBoss {
       engine.particles.spawnSparks(this.x, this.y - 5, 30, '#FF4400');
     }
     if (window.soundSystem && window.soundSystem.playExplosion) window.soundSystem.playExplosion();
-    // Damage survivors in range
+    // Damage survivors in range (moderate)
     for (const s of engine.survivors) {
       if (s.isDead) continue;
       if (Math.hypot(s.x - this.x, s.y - this.y) < this.slamRadius) {
-        s.hp = Math.max(1, s.hp - 22);
+        s.hp = Math.max(1, s.hp - 12);
       }
     }
     engine.addNotification('💥 BOSS GROUND SLAM!', '#FF4400', 2);

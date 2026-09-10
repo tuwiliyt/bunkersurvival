@@ -1926,19 +1926,19 @@ const CONFIG = {
 
   // Turret Level Stats
   TURRET_TIERS: [
-    { level: 1, name: 'Sentry Gun 9mm', damage: 24, fireRate: 0.22, range: 340, maxAmmo: 100, upgradeCost: { metal: 50 } },
-    { level: 2, name: 'Twin Autocannon', damage: 42, fireRate: 0.15, range: 400, maxAmmo: 200, upgradeCost: { metal: 120, gunpowder: 40 } },
-    { level: 3, name: 'Vulcan Minigun', damage: 62, fireRate: 0.08, range: 480, maxAmmo: 400, upgradeCost: { metal: 220, gunpowder: 80 } },
-    { level: 4, name: 'Heavy Plasma Cannon', damage: 180, fireRate: 0.35, range: 560, maxAmmo: 600, upgradeCost: null }
+    { level: 1, name: 'Sentry Gun 9mm', damage: 28, fireRate: 0.20, range: 390, maxAmmo: 120, upgradeCost: { metal: 50 } },
+    { level: 2, name: 'Twin Autocannon', damage: 46, fireRate: 0.14, range: 440, maxAmmo: 220, upgradeCost: { metal: 120, gunpowder: 40 } },
+    { level: 3, name: 'Vulcan Minigun', damage: 68, fireRate: 0.07, range: 500, maxAmmo: 450, upgradeCost: { metal: 220, gunpowder: 80 } },
+    { level: 4, name: 'Heavy Plasma Cannon', damage: 195, fireRate: 0.32, range: 580, maxAmmo: 650, upgradeCost: null }
   ],
 
-  // Zombie Types
+  // Zombie Types (Balanced for engaging survival experience)
   ZOMBIE_TYPES: {
-    shambler: { name: 'Walker', hp: 55, speed: 22, damage: 8, color: '#4a754e', size: 16, reward: { metal: 3, gunpowder: 2 } },
-    runner: { name: 'Feral Runner', hp: 35, speed: 58, damage: 12, color: '#883b3b', size: 14, reward: { metal: 2, gunpowder: 3 } },
-    armored: { name: 'Riot Armored', hp: 140, speed: 18, damage: 15, color: '#3f4e56', size: 18, reward: { metal: 8, gunpowder: 4 } },
-    spitter: { name: 'Acid Spitter', hp: 50, speed: 24, range: 250, damage: 14, color: '#68882d', size: 15, reward: { metal: 4, gunpowder: 6 } },
-    brute: { name: 'Goliath Brute', hp: 450, speed: 14, damage: 35, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
+    shambler: { name: 'Walker', hp: 38, speed: 20, damage: 6, color: '#4a754e', size: 16, reward: { metal: 3, gunpowder: 2 } },
+    runner: { name: 'Feral Runner', hp: 24, speed: 44, damage: 8, color: '#883b3b', size: 14, reward: { metal: 2, gunpowder: 3 } },
+    armored: { name: 'Riot Armored', hp: 80, speed: 16, damage: 10, color: '#3f4e56', size: 18, reward: { metal: 8, gunpowder: 4 } },
+    spitter: { name: 'Acid Spitter', hp: 34, speed: 20, range: 210, damage: 8, color: '#68882d', size: 15, reward: { metal: 4, gunpowder: 6 } },
+    brute: { name: 'Goliath Brute', hp: 240, speed: 12, damage: 18, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
   },
 
   // Population & Living Quarters
@@ -3312,16 +3312,24 @@ window.ParticleSystem = ParticleSystem;
 // --- turrets.js ---
 // Automated Defensive Turrets System with Target Prioritization, Armor Penetration, and Manual Crosshair Control
 class Turret {
-  constructor(side, x, y) {
-    this.side = side; // 'left' or 'right'
-    this.x = x;
-    this.y = y;
+  constructor(sideOrOpts, x, y) {
+    if (typeof sideOrOpts === 'object' && sideOrOpts !== null) {
+      this.side = sideOrOpts.side || 'left';
+      this.x = sideOrOpts.x;
+      this.y = sideOrOpts.y;
+      this.label = sideOrOpts.label || '';
+    } else {
+      this.side = sideOrOpts;
+      this.x = x;
+      this.y = y;
+      this.label = '';
+    }
     this.tierIndex = 0;
     this.stats = { ...CONFIG.TURRET_TIERS[0] };
     this.ammo = this.stats.maxAmmo;
     this.health = 100;
     this.maxHealth = 100;
-    this.angle = side === 'left' ? Math.PI : 0; // Default facing outward
+    this.angle = this.side === 'left' ? Math.PI : 0; // Default facing outward
     this.targetAngle = this.angle;
     this.target = null;
     this.cooldown = 0;
@@ -4508,6 +4516,33 @@ class Zombie {
       return;
     }
 
+    // Check if reached perimeter fence (Extra security!)
+    const engine = window.gameEngine;
+    if (engine && engine.fences) {
+      if (this.side === 'left' && engine.fences.left && engine.fences.left.hp > 0 && this.x >= 420 && this.x <= 450) {
+        if (this.attackCooldown <= 0) {
+          this.attackCooldown = this.attackRate;
+          engine.damageFence('left', this.damage);
+          this.takeDamage(4); // Barbed wire counter-damage
+          if (window.soundSystem && window.soundSystem.playZombieShriek) {
+            window.soundSystem.playZombieShriek();
+          }
+        }
+        return;
+      }
+      if (this.side === 'right' && engine.fences.right && engine.fences.right.hp > 0 && this.x <= 860 && this.x >= 830) {
+        if (this.attackCooldown <= 0) {
+          this.attackCooldown = this.attackRate;
+          engine.damageFence('right', this.damage);
+          this.takeDamage(4); // Barbed wire counter-damage
+          if (window.soundSystem && window.soundSystem.playZombieShriek) {
+            window.soundSystem.playZombieShriek();
+          }
+        }
+        return;
+      }
+    }
+
     // Check if reached turret or barricade
     const inMeleeRange = distToTurret <= 18 || distToHouse <= 45;
     if (inMeleeRange) {
@@ -5217,10 +5252,10 @@ class WaveManager {
 
     // Build tactical wave composition
     this.hordeSpawnQueue = [];
-    const count = 7 + this.currentWave * 4;
+    const count = 4 + this.currentWave * 3;
 
-    // Vanguard: armored tanks soak initial fire
-    if (this.currentWave >= 2) {
+    // Vanguard: armored tanks soak initial fire (from wave 3+)
+    if (this.currentWave >= 3) {
       this.hordeSpawnQueue.push({ type: 'armored', side: 'left' });
       this.hordeSpawnQueue.push({ type: 'armored', side: 'right' });
     }
@@ -5230,23 +5265,22 @@ class WaveManager {
       let type = 'shambler';
       const roll = Math.random();
 
-      if (this.currentWave >= 1 && roll < 0.40) {
-        type = 'runner'; // Fast flanking runners
-      } else if (this.currentWave >= 2 && roll > 0.80) {
+      if (this.currentWave >= 1 && roll < 0.25) {
+        type = 'runner'; // Fast flanking runners (25%)
+      } else if (this.currentWave >= 2 && roll > 0.82) {
         type = 'armored';
       } else if (this.currentWave >= 3 && roll > 0.88) {
         type = 'spitter'; // Acid artillery
-      } else if (this.currentWave >= 4 && roll > 0.95) {
+      } else if (this.currentWave >= 4 && roll > 0.94) {
         type = 'brute';
       }
 
       this.hordeSpawnQueue.push({ type, side });
     }
 
-    // Guaranteed Brutes on every 3rd wave
-    if (this.currentWave % 3 === 0) {
-      this.hordeSpawnQueue.push({ type: 'brute', side: 'left' });
-      this.hordeSpawnQueue.push({ type: 'brute', side: 'right' });
+    // Guaranteed Brute on every 4th wave
+    if (this.currentWave >= 4 && this.currentWave % 4 === 0) {
+      this.hordeSpawnQueue.push({ type: 'brute', side: Math.random() > 0.5 ? 'left' : 'right' });
     }
   }
 
@@ -5300,10 +5334,10 @@ class WaveManager {
 class ZombieBoss {
   constructor(side) {
     this.side = side || (Math.random() < 0.5 ? 'left' : 'right');
-    this.maxHp = 4200 + (window.gameEngine ? window.gameEngine.waveManager.currentWave * 180 : 0);
+    this.maxHp = 2200 + (window.gameEngine ? window.gameEngine.waveManager.currentWave * 100 : 0);
     this.hp = this.maxHp;
-    this.speed = 28;
-    this.damage = 38;
+    this.speed = 18;
+    this.damage = 20;
     this.size = 38;
     this.x = this.side === 'left' ? -60 : 1340;
     this.y = CONFIG.SURFACE_Y;
@@ -5343,9 +5377,9 @@ class ZombieBoss {
     // Rage: below 30% HP → speed+damage surge
     if (!this.isEnraged && this.hp < this.maxHp * 0.3) {
       this.isEnraged = true;
-      this.speed = 52;
-      this.damage = 60;
-      engine.addNotification('💀 BOSS ENRAGED! Speed & damage doubled!', '#FF0000', 4);
+      this.speed = 32;
+      this.damage = 32;
+      engine.addNotification('💀 BOSS ENRAGED! Speed & fury surging!', '#FF0000', 4);
     }
     this.enrageFlash = this.isEnraged ? (Math.sin(this.animTime * 8) * 0.5 + 0.5) : 0;
 
@@ -5355,8 +5389,7 @@ class ZombieBoss {
     if (this.isCharging) {
       this.x += this.chargeDir * this.chargeSpeed * dt;
       this.chargeSpeed *= (1 - dt * 2.5);
-      if (this.chargeSpeed < 5) { this.isCharging = false; this.chargeCooldown = 6; }
-      // Damage fence/turrets if passing through
+      if (this.chargeSpeed < 5) { this.isCharging = false; this.chargeCooldown = 8; }
       if (engine.particles) {
         engine.particles.spawnSparks(this.x, this.y - 10, 3, '#FF8C00');
       }
@@ -5375,21 +5408,21 @@ class ZombieBoss {
       if (this.chargeCooldown <= 0 && Math.abs(dx) > 200) {
         this.isCharging = true;
         this.chargeDir = Math.sign(dx);
-        this.chargeSpeed = 280;
+        this.chargeSpeed = 130;
         engine.addNotification('💨 BOSS CHARGING!', '#FF6600', 2);
         if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 20, 20, '#FF4400');
       }
     }
 
-    // Spawn minions periodically
-    if (this.minionTimer > 12) {
+    // Spawn minions periodically (2 minions every 18s)
+    if (this.minionTimer > 18) {
       this.minionTimer = 0;
       const side = this.x < 640 ? 'right' : 'left';
-      for (let i = 0; i < 3; i++) {
-        const minion = new Zombie(Math.random() < 0.4 ? 'runner' : 'shambler', side);
+      for (let i = 0; i < 2; i++) {
+        const minion = new Zombie(Math.random() < 0.3 ? 'runner' : 'shambler', side);
         engine.zombies.push(minion);
       }
-      engine.addNotification('🧟 Boss summons minions!', '#8B0000', 2.5);
+      engine.addNotification('🧟 Boss summons reinforcements!', '#8B0000', 2.5);
     }
 
     // Boss roar every 8s
@@ -5399,17 +5432,17 @@ class ZombieBoss {
       if (engine.particles) engine.particles.spawnSparks(this.x, this.y - 30, 15, '#8B0000');
     }
 
-    // Damage turrets/barricades on contact
+    // Damage turrets on contact (moderate damage rate)
     const turrets = [engine.leftTurret, engine.rightTurret, ...(engine.constructionSites || []).filter(s => s.built && s.turret).map(s => s.turret)];
     for (const t of turrets) {
       if (t && Math.hypot(this.x - t.x, this.y - (t.y || CONFIG.SURFACE_Y)) < 55) {
-        t.health = Math.max(0, (t.health || 100) - this.damage * dt * 0.8);
+        t.health = Math.max(0, (t.health || 100) - this.damage * dt * 0.35);
       }
     }
   }
 
   _groundSlam(engine) {
-    this.slamCooldown = 7;
+    this.slamCooldown = 10;
     // Shake / AOE VFX
     if (engine.particles) {
       for (let i = 0; i < 24; i++) {
@@ -5426,11 +5459,11 @@ class ZombieBoss {
       engine.particles.spawnSparks(this.x, this.y - 5, 30, '#FF4400');
     }
     if (window.soundSystem && window.soundSystem.playExplosion) window.soundSystem.playExplosion();
-    // Damage survivors in range
+    // Damage survivors in range (moderate)
     for (const s of engine.survivors) {
       if (s.isDead) continue;
       if (Math.hypot(s.x - this.x, s.y - this.y) < this.slamRadius) {
-        s.hp = Math.max(1, s.hp - 22);
+        s.hp = Math.max(1, s.hp - 12);
       }
     }
     engine.addNotification('💥 BOSS GROUND SLAM!', '#FF4400', 2);
@@ -9318,6 +9351,12 @@ class GameEngine {
     this.sniperAimAngle = Math.PI * 0.15;
     this.sniperTarget = null;
 
+    // ── Fortified Perimeter Defenses (Palisade Wood & Barbed Wire) ─────────
+    this.fences = {
+      left: { x1: 220, x2: 450, hp: 350, maxHp: 350, label: 'West Palisade' },
+      right: { x1: 830, x2: 1060, hp: 350, maxHp: 350, label: 'East Palisade' }
+    };
+
     // ── Construction System ─────────────────────────────────────────────────
     // Two additional roof turrets built autonomously when resources allow
     this.constructionSites = [
@@ -11843,29 +11882,37 @@ class GameEngine {
     }
   }
 
-  // ── Perimeter Fence Drawing ─────────────────────────────────────────────────
-  // Wooden palisade + barbed wire around the compound perimeter
+  // ── Perimeter Fence Drawing & Damage Handling ──────────────────────────────
   drawFence(ctx) {
     const groundY = CONFIG.SURFACE_Y;
-    // Fence spans from left treeline to right treeline, in front of building
-    const fenceSegments = [
-      { x1: 220, x2: 450, y: groundY },  // Left wing
-      { x1: 830, x2: 1060, y: groundY }, // Right wing
+    const fenceDefs = [
+      { side: 'left', x1: 220, x2: 450, data: this.fences ? this.fences.left : null },
+      { side: 'right', x1: 830, x2: 1060, data: this.fences ? this.fences.right : null },
     ];
-    // Posts every 22px
     const POST_W = 6, POST_H = 28;
 
-    for (const seg of fenceSegments) {
+    for (const def of fenceDefs) {
+      const f = def.data;
+      const isBreached = f && f.hp <= 0;
       ctx.save();
+
       // Palisade planks
-      for (let px = seg.x1; px <= seg.x2; px += 22) {
-        // Post
+      for (let px = def.x1; px <= def.x2; px += 22) {
+        if (isBreached) {
+          // Splintered, broken stumps
+          ctx.fillStyle = '#4a3319';
+          ctx.fillRect(px, groundY - 10, POST_W, 10);
+          continue;
+        }
+
+        // Intact post
         const postGrad = ctx.createLinearGradient(px, groundY - POST_H, px + POST_W, groundY);
         postGrad.addColorStop(0, '#8B6914');
         postGrad.addColorStop(0.4, '#A0784E');
         postGrad.addColorStop(1, '#6B4A1A');
         ctx.fillStyle = postGrad;
         ctx.fillRect(px, groundY - POST_H, POST_W, POST_H);
+
         // Pointed tip
         ctx.fillStyle = '#8B6914';
         ctx.beginPath();
@@ -11873,6 +11920,7 @@ class GameEngine {
         ctx.lineTo(px + POST_W / 2, groundY - POST_H - 7);
         ctx.lineTo(px + POST_W, groundY - POST_H);
         ctx.fill();
+
         // Wood grain lines
         ctx.strokeStyle = 'rgba(0,0,0,0.18)';
         ctx.lineWidth = 0.6;
@@ -11882,57 +11930,81 @@ class GameEngine {
         ctx.stroke();
       }
 
-      // Horizontal rails connecting posts
-      ctx.strokeStyle = '#7A5C2E';
-      ctx.lineWidth = 3.5;
-      // Upper rail
-      ctx.beginPath();
-      ctx.moveTo(seg.x1, groundY - POST_H * 0.72);
-      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.72);
-      ctx.stroke();
-      // Lower rail
-      ctx.beginPath();
-      ctx.moveTo(seg.x1, groundY - POST_H * 0.35);
-      ctx.lineTo(seg.x2 + POST_W, groundY - POST_H * 0.35);
-      ctx.stroke();
+      if (!isBreached) {
+        // Horizontal rails connecting posts
+        ctx.strokeStyle = '#7A5C2E';
+        ctx.lineWidth = 3.5;
+        // Upper rail
+        ctx.beginPath();
+        ctx.moveTo(def.x1, groundY - POST_H * 0.72);
+        ctx.lineTo(def.x2 + POST_W, groundY - POST_H * 0.72);
+        ctx.stroke();
+        // Lower rail
+        ctx.beginPath();
+        ctx.moveTo(def.x1, groundY - POST_H * 0.35);
+        ctx.lineTo(def.x2 + POST_W, groundY - POST_H * 0.35);
+        ctx.stroke();
 
-      // Barbed wire on top rail
-      ctx.strokeStyle = '#C0C0C0';
-      ctx.lineWidth = 1;
-      for (let bx = seg.x1 + 4; bx < seg.x2; bx += 14) {
-        const by = groundY - POST_H * 0.72 - 4;
-        ctx.beginPath();
-        ctx.moveTo(bx, by + 4);
-        ctx.lineTo(bx + 4, by);
-        ctx.lineTo(bx + 8, by + 4);
-        ctx.lineTo(bx + 12, by);
-        ctx.stroke();
-        // Barb spikes
-        ctx.beginPath();
-        ctx.moveTo(bx + 4, by);
-        ctx.lineTo(bx + 2, by - 3);
-        ctx.moveTo(bx + 4, by);
-        ctx.lineTo(bx + 6, by - 3);
-        ctx.stroke();
+        // Barbed wire on top rail
+        ctx.strokeStyle = '#C0C0C0';
+        ctx.lineWidth = 1;
+        for (let bx = def.x1 + 4; bx < def.x2; bx += 14) {
+          const by = groundY - POST_H * 0.72 - 4;
+          ctx.beginPath();
+          ctx.moveTo(bx, by + 4);
+          ctx.lineTo(bx + 4, by);
+          ctx.lineTo(bx + 8, by + 4);
+          ctx.lineTo(bx + 12, by);
+          ctx.stroke();
+          // Barb spikes
+          ctx.beginPath();
+          ctx.moveTo(bx + 4, by);
+          ctx.lineTo(bx + 2, by - 3);
+          ctx.moveTo(bx + 4, by);
+          ctx.lineTo(bx + 6, by - 3);
+          ctx.stroke();
+        }
+
+        // Warning sign on fence
+        const midX = (def.x1 + def.x2) / 2;
+        ctx.fillStyle = '#F39C12';
+        ctx.fillRect(midX - 12, groundY - POST_H - 14, 24, 14);
+        ctx.strokeStyle = '#E67E22'; ctx.lineWidth = 1;
+        ctx.strokeRect(midX - 12, groundY - POST_H - 14, 24, 14);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 7px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠ KEEP OUT', midX, groundY - POST_H - 5);
+
+        // Fence Health Bar (if damaged)
+        if (f && f.hp < f.maxHp) {
+          const barW = 50, barH = 4;
+          const barX = midX - barW / 2;
+          const barY = groundY - POST_H - 22;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+          const ratio = Math.max(0, f.hp / f.maxHp);
+          ctx.fillStyle = ratio > 0.5 ? '#2ecc71' : ratio > 0.25 ? '#f39c12' : '#e74c3c';
+          ctx.fillRect(barX, barY, barW * ratio, barH);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 7px monospace';
+          ctx.fillText(`FENCE: ${Math.ceil(f.hp)}/${f.maxHp}`, midX, barY - 3);
+        }
+      } else {
+        // Breached label
+        const midX = (def.x1 + def.x2) / 2;
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡ FENCE BREACHED', midX, groundY - 16);
       }
-
-      // Warning sign on fence
-      const midX = (seg.x1 + seg.x2) / 2;
-      ctx.fillStyle = '#F39C12';
-      ctx.fillRect(midX - 12, groundY - POST_H - 14, 24, 14);
-      ctx.strokeStyle = '#E67E22'; ctx.lineWidth = 1;
-      ctx.strokeRect(midX - 12, groundY - POST_H - 14, 24, 14);
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = 'bold 7px "Courier New"';
-      ctx.textAlign = 'center';
-      ctx.fillText('⚠ KEEP OUT', midX, groundY - POST_H - 5);
 
       ctx.restore();
     }
 
     // Gate posts on either side of cabin entrance
     const GATE_W = 8, GATE_H = 34;
-    const gatePositions = [{ x: 448 }, { x: 830 }]; // Just outside fence gaps
+    const gatePositions = [{ x: 448 }, { x: 830 }];
     for (const gp of gatePositions) {
       ctx.save();
       const gg = ctx.createLinearGradient(gp.x, groundY - GATE_H, gp.x + GATE_W, groundY);
@@ -11947,6 +12019,34 @@ class GameEngine {
       ctx.restore();
     }
   }
+
+  damageFence(side, amount) {
+    const f = this.fences && this.fences[side];
+    if (!f || f.hp <= 0) return;
+    f.hp = Math.max(0, f.hp - amount);
+    const fx = side === 'left' ? 435 : 845;
+    if (this.particles) {
+      this.particles.spawnSparks(fx, CONFIG.SURFACE_Y - 14, 6, '#d35400');
+    }
+    if (f.hp <= 0) {
+      this.addNotification(`⚠️ ${f.label} BREACHED! Barricade destroyed!`, 'danger', 4);
+      if (window.soundSystem && window.soundSystem.playExplosion) window.soundSystem.playExplosion();
+    }
+  }
+
+  repairFence(side) {
+    const f = this.fences && this.fences[side];
+    if (!f || f.hp >= f.maxHp || this.resources.metal < 8) return false;
+    this.resources.metal -= 8;
+    f.hp = Math.min(f.maxHp, f.hp + 60);
+    const fx = side === 'left' ? 435 : 845;
+    if (this.particles) {
+      this.particles.spawnSparks(fx, CONFIG.SURFACE_Y - 14, 8, '#2ecc71');
+      this.particles.addFloatingText('+60 FENCE HP', fx - 25, CONFIG.SURFACE_Y - 30, '#2ecc71');
+    }
+    return true;
+  }
+
 
   // Update roof searchlights tracking approaching zombies or sweeping dark forest
   updateSearchlights(dt) {
