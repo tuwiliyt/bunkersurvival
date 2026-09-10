@@ -1,0 +1,759 @@
+/* Tactical Bunker Survival Styling */
+:root {
+  --bg-dark: #0f1115;
+  --panel-bg: #161a22;
+  --panel-border: #2d3748;
+  --accent-amber: #f39c12;
+  --accent-red: #e74c3c;
+  --accent-green: #2ecc71;
+  --accent-blue: #3498db;
+  --text-main: #e2e8f0;
+  --text-dim: #a0aec0;
+  --font-mono: 'Courier New', 'Consolas', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Header HUD */
+.header-hud {
+  background: #12161f;
+  border-bottom: 2px solid #2d3748;
+  padding: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-title h1 {
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  color: #f1c40f;
+  text-transform: uppercase;
+}
+
+.hud-time-pop {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.resource-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.res-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.res-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+}
+
+.res-ammo {
+  border-color: #f39c12;
+  background: rgba(243, 156, 18, 0.2);
+  box-shadow: 0 0 10px rgba(243, 156, 18, 0.35);
+  font-weight: bold;
+}
+
+.res-item .icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+}
+
+.hud-radar-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.radar-badge {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+.radar-badge.normal {
+  background: #132a1a;
+  border: 1px solid #2ecc71;
+  color: #a3e635;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.35);
+}
+
+.radar-badge.warning {
+  background: #3c290d;
+  border: 1px solid #f39c12;
+  color: #ffd166;
+  box-shadow: 0 0 12px rgba(243, 156, 18, 0.55);
+}
+
+.radar-badge.danger {
+  background: #4a1212;
+  border: 1px solid #e74c3c;
+  color: #ff7675;
+  box-shadow: 0 0 16px rgba(231, 76, 60, 0.85);
+}
+
+.pulse {
+  animation: pulseAnim 1s infinite alternate;
+}
+
+@keyframes pulseAnim {
+  0% { transform: scale(1); opacity: 0.85; }
+  100% { transform: scale(1.04); opacity: 1; }
+}
+
+.hud-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Button styles */
+.btn {
+  background: #242b35;
+  color: #e2e8f0;
+  border: 1px solid #3e4c5e;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: #323b49;
+  border-color: #637794;
+}
+
+.btn.active {
+  background: #2980b9;
+  border-color: #3498db;
+  color: #fff;
+}
+
+.btn-primary {
+  background: #27ae60;
+  border-color: #2ecc71;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #2ecc71;
+}
+
+.btn-action {
+  background: #d35400;
+  border-color: #e67e22;
+  color: #fff;
+  font-weight: bold;
+}
+.btn-action:hover {
+  background: #e67e22;
+}
+
+.btn-accent {
+  background: #2980b9;
+  border-color: #3498db;
+  color: #fff;
+}
+.btn-accent:hover {
+  background: #3498db;
+}
+
+.btn-secondary {
+  background: #34495e;
+  border-color: #4a6572;
+}
+
+.btn-danger {
+  background: #962d2d;
+  border-color: #c0392b;
+}
+
+.btn-sm {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Main Viewport Container */
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #000;
+}
+
+#game-canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1280 / 820;
+  display: block;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+  cursor: crosshair;
+}
+
+/* Tactical Retro-Military CRT Scanline Effect */
+.crt-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.035), rgba(0, 255, 0, 0.018), rgba(0, 0, 255, 0.035));
+  background-size: 100% 4px, 6px 100%;
+  box-shadow: 
+    inset 0 0 90px rgba(0, 0, 0, 0.85),
+    inset 0 0 25px rgba(0, 0, 0, 0.95);
+  border-radius: 4px;
+}
+
+body.crt-active #game-canvas {
+  filter: contrast(1.12) brightness(1.05) saturate(1.18);
+}
+
+body.crt-active .header-hud,
+body.crt-active .turret-hud-overlay {
+  text-shadow: 0 0 3px rgba(241, 196, 15, 0.4);
+}
+
+/* On-Screen Turret HUD Overlay Widgets */
+.turret-hud-overlay {
+  position: absolute;
+  top: 12px;
+  width: 255px;
+  background: rgba(14, 18, 25, 0.92);
+  border: 1px solid #3e4c5e;
+  backdrop-filter: blur(8px);
+  padding: 10px 12px;
+  border-radius: 4px;
+  pointer-events: auto;
+  z-index: 5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.turret-hud-overlay:hover {
+  border-color: #5d728e;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.8), 0 0 12px rgba(52, 152, 219, 0.25);
+}
+
+.turret-hud-overlay.left {
+  left: 14px;
+}
+
+.turret-hud-overlay.right {
+  right: 14px;
+}
+
+.turret-hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.turret-hud-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #f1c40f;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+}
+
+.hud-alert-badge {
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hud-alert-badge.warn {
+  background: #d35400;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(211, 84, 0, 0.7);
+}
+
+.hud-alert-badge.danger {
+  background: #c0392b;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(192, 57, 43, 0.9);
+}
+
+.hud-label {
+  font-size: 10px;
+  font-weight: bold;
+  color: #a0aec0;
+  width: 60px;
+}
+
+.hud-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.hud-bar-row.critical .val-text {
+  color: #ff4d4d;
+  font-weight: bold;
+  animation: pulseAnim 0.6s infinite alternate;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #11141a;
+  border: 1px solid #2d3748;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.25s ease;
+}
+
+.bar-green {
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+}
+
+.bar-amber {
+  background: linear-gradient(90deg, #d35400, #f39c12);
+  box-shadow: 0 0 8px rgba(243, 156, 18, 0.6);
+}
+
+.bar-red {
+  background: linear-gradient(90deg, #962d2d, #e74c3c);
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.85);
+}
+
+.bar-blue {
+  background: linear-gradient(90deg, #2980b9, #3498db);
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
+}
+
+.val-text {
+  width: 60px;
+  text-align: right;
+  font-family: monospace;
+  font-size: 10px;
+}
+
+.turret-btn-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 99;
+}
+
+.modal-content {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 6px;
+  width: 90%;
+  max-width: 650px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #2d3748;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  color: #f1c40f;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.modal-info-box {
+  background: #1f2530;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 14px;
+  border-left: 3px solid #3498db;
+}
+
+.modal-section {
+  margin-bottom: 16px;
+}
+
+.modal-section h3 {
+  font-size: 13px;
+  color: #a0aec0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.workers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.worker-card {
+  background: #1c222c;
+  border: 1px solid #2e3846;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.assign-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.form-select {
+  flex: 1;
+  background: #11141a;
+  color: #fff;
+  border: 1px solid #3e4c5e;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.form-select.sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #2d3748;
+  padding-top: 12px;
+  margin-top: 14px;
+}
+
+/* Turret Spec Grid */
+.turret-spec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #1a202c;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* Roster Styling */
+.roster-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.survivor-roster-row {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.survivor-roster-row.dead {
+  background: #2b1717;
+  border-color: #632525;
+}
+
+.survivor-main-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar-large {
+  font-size: 24px;
+}
+
+.survivor-stats-mini {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.survivor-assign-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+/* Tech Tree */
+.tech-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tech-card {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  padding: 12px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tech-card.researched {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.tech-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tech-header h4 {
+  font-size: 12px;
+  color: #fff;
+}
+
+.tech-status {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffd166;
+}
+
+.tech-card p {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* Expeditions */
+.expedition-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expedition-card {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  padding: 14px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.expedition-card h4 {
+  color: #f1c40f;
+  font-size: 13px;
+}
+
+.help-body {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.help-body ul {
+  margin-left: 18px;
+  margin-top: 8px;
+}
+
+.help-body li {
+  margin-bottom: 6px;
+}
+
+.gameover-stats {
+  background: #1a202c;
+  padding: 14px;
+  border-radius: 4px;
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.text-danger { color: var(--accent-red); }
+.text-accent { color: var(--accent-amber); }
+.text-dim { color: var(--text-dim); }
+
+/* Manual Aim & Priority Enhancements */
+#btn-manual-aim.active {
+  background: #0984e3;
+  border-color: #00cec9;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0, 206, 201, 0.6);
+  animation: pulseManual 1.5s infinite alternate;
+}
+
+@keyframes pulseManual {
+  from { box-shadow: 0 0 4px rgba(0, 206, 201, 0.4); }
+  to { box-shadow: 0 0 12px rgba(0, 206, 201, 0.8); }
+}
+
+.badge-carrier {
+  font-size: 9px;
+  background: #d35400;
+  color: #fff;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+  animation: pulseAnim 0.8s infinite alternate;
+}
+
+.survivor-xp-bar {
+  width: 140px;
+  height: 6px;
+  background: #111;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.survivor-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f1c40f, #e67e22);
+}
+
+.priority-btn-group {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.priority-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 10px;
+  background: #242b35;
+  border: 1px solid #3e4c5e;
+  color: #cbd5e0;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.priority-btn.active {
+  background: #f39c12;
+  border-color: #f1c40f;
+  color: #000;
+  font-weight: bold;
+}

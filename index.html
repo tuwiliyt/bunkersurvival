@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BUNKER PROTOCOL: 2D Zombie Survival Defense</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top Tactical HUD -->
+  <header class="header-hud">
+    <div class="brand-title">
+      <h1>🛡️ Bunker Protocol</h1>
+      <div class="hud-time-pop">
+        <span id="hud-day">Day 1 - 08:00</span> | <span id="hud-pop">5 Alive</span>
+      </div>
+    </div>
+
+    <!-- Core Resources Bar -->
+    <div class="resource-bar">
+      <div class="res-item res-ammo" title="Turret Ammunition (CRITICAL SUPPLY)">
+        <span class="icon">📦</span> <span>AMMO:</span> <span id="res-ammo">250/1000</span>
+      </div>
+      <div class="res-item" title="Generator Electrical Power">
+        <span class="icon">⚡</span> <span>PWR:</span> <span id="res-power">100/100</span>
+      </div>
+      <div class="res-item" title="Food Rations">
+        <span class="icon">🍲</span> <span>FOOD:</span> <span id="res-food">80/200</span>
+      </div>
+      <div class="res-item" title="Drinking Water">
+        <span class="icon">💧</span> <span>WATER:</span> <span id="res-water">80/200</span>
+      </div>
+      <div class="res-item" title="Scrap Metal & Components">
+        <span class="icon">🔩</span> <span>METAL:</span> <span id="res-metal">60/300</span>
+      </div>
+      <div class="res-item" title="Gunpowder for Munitions">
+        <span class="icon">⚗️</span> <span>POWDER:</span> <span id="res-gunpowder">40/200</span>
+      </div>
+      <div class="res-item" title="Diesel Generator Fuel">
+        <span class="icon">🛢️</span> <span>FUEL:</span> <span id="res-fuel">50/150</span>
+      </div>
+    </div>
+
+    <!-- Threat Radar Warning Display -->
+    <div class="hud-radar-wrap">
+      <div id="hud-radar" class="radar-badge normal">
+        📡 Radar Scanning...
+      </div>
+    </div>
+
+    <!-- Speed & Control Actions -->
+    <div class="hud-controls">
+      <button id="btn-speed-pause" class="btn btn-sm">⏸️ Pause</button>
+      <button id="btn-speed-1x" class="btn btn-sm active">1x</button>
+      <button id="btn-speed-2x" class="btn btn-sm">2x</button>
+      <button id="btn-speed-5x" class="btn btn-sm">5x</button>
+      <button id="btn-manual-aim" class="btn btn-sm" title="Toggle Manual Crosshair Aim (Hotkey: M)">🎯 Manual Aim: OFF</button>
+      <button id="btn-open-roster" class="btn btn-sm btn-primary">👥 Crew</button>
+      <button id="btn-open-research" class="btn btn-sm btn-accent">🔬 Tech</button>
+      <button id="btn-open-expedition" class="btn btn-sm btn-action">🌲 Expedition</button>
+      <button id="btn-audio-toggle" class="btn btn-sm">🔊 Sound</button>
+      <button id="btn-crt-toggle" class="btn btn-sm" title="Toggle Tactical Retro-Military CRT Scanlines (Hotkey: C)">📺 CRT: OFF</button>
+      <button id="btn-open-help" class="btn btn-sm btn-secondary">📖 Guide</button>
+    </div>
+  </header>
+
+  <!-- Viewport Area -->
+  <main class="game-container">
+    <!-- CRT Scanline Tactical Filter Overlay -->
+    <div id="crt-overlay" class="crt-overlay" style="display:none;"></div>
+
+    <!-- Left Turret Floating HUD Widget -->
+    <div id="left-turret-hud" class="turret-hud-overlay left"></div>
+
+    <!-- Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Right Turret Floating HUD Widget -->
+    <div id="right-turret-hud" class="turret-hud-overlay right"></div>
+  </main>
+
+  <!-- Interactive Modal Container -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/turrets.js"></script>
+  <script src="js/zombies.js"></script>
+  <script src="js/bunker.js"></script>
+  <script src="js/survivors.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>

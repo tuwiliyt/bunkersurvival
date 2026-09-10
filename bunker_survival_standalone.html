@@ -1,0 +1,5922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BUNKER PROTOCOL: 2D Zombie Survival Defense</title>
+  <style>
+/* Tactical Bunker Survival Styling */
+:root {
+  --bg-dark: #0f1115;
+  --panel-bg: #161a22;
+  --panel-border: #2d3748;
+  --accent-amber: #f39c12;
+  --accent-red: #e74c3c;
+  --accent-green: #2ecc71;
+  --accent-blue: #3498db;
+  --text-main: #e2e8f0;
+  --text-dim: #a0aec0;
+  --font-mono: 'Courier New', 'Consolas', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Header HUD */
+.header-hud {
+  background: #12161f;
+  border-bottom: 2px solid #2d3748;
+  padding: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-title h1 {
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  color: #f1c40f;
+  text-transform: uppercase;
+}
+
+.hud-time-pop {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.resource-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.res-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.res-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+}
+
+.res-ammo {
+  border-color: #f39c12;
+  background: rgba(243, 156, 18, 0.2);
+  box-shadow: 0 0 10px rgba(243, 156, 18, 0.35);
+  font-weight: bold;
+}
+
+.res-item .icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+}
+
+.hud-radar-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.radar-badge {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+.radar-badge.normal {
+  background: #132a1a;
+  border: 1px solid #2ecc71;
+  color: #a3e635;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.35);
+}
+
+.radar-badge.warning {
+  background: #3c290d;
+  border: 1px solid #f39c12;
+  color: #ffd166;
+  box-shadow: 0 0 12px rgba(243, 156, 18, 0.55);
+}
+
+.radar-badge.danger {
+  background: #4a1212;
+  border: 1px solid #e74c3c;
+  color: #ff7675;
+  box-shadow: 0 0 16px rgba(231, 76, 60, 0.85);
+}
+
+.pulse {
+  animation: pulseAnim 1s infinite alternate;
+}
+
+@keyframes pulseAnim {
+  0% { transform: scale(1); opacity: 0.85; }
+  100% { transform: scale(1.04); opacity: 1; }
+}
+
+.hud-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Button styles */
+.btn {
+  background: #242b35;
+  color: #e2e8f0;
+  border: 1px solid #3e4c5e;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: #323b49;
+  border-color: #637794;
+}
+
+.btn.active {
+  background: #2980b9;
+  border-color: #3498db;
+  color: #fff;
+}
+
+.btn-primary {
+  background: #27ae60;
+  border-color: #2ecc71;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #2ecc71;
+}
+
+.btn-action {
+  background: #d35400;
+  border-color: #e67e22;
+  color: #fff;
+  font-weight: bold;
+}
+.btn-action:hover {
+  background: #e67e22;
+}
+
+.btn-accent {
+  background: #2980b9;
+  border-color: #3498db;
+  color: #fff;
+}
+.btn-accent:hover {
+  background: #3498db;
+}
+
+.btn-secondary {
+  background: #34495e;
+  border-color: #4a6572;
+}
+
+.btn-danger {
+  background: #962d2d;
+  border-color: #c0392b;
+}
+
+.btn-sm {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Main Viewport Container */
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #000;
+}
+
+#game-canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1280 / 820;
+  display: block;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+  cursor: crosshair;
+}
+
+/* Tactical Retro-Military CRT Scanline Effect */
+.crt-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.035), rgba(0, 255, 0, 0.018), rgba(0, 0, 255, 0.035));
+  background-size: 100% 4px, 6px 100%;
+  box-shadow: 
+    inset 0 0 90px rgba(0, 0, 0, 0.85),
+    inset 0 0 25px rgba(0, 0, 0, 0.95);
+  border-radius: 4px;
+}
+
+body.crt-active #game-canvas {
+  filter: contrast(1.12) brightness(1.05) saturate(1.18);
+}
+
+body.crt-active .header-hud,
+body.crt-active .turret-hud-overlay {
+  text-shadow: 0 0 3px rgba(241, 196, 15, 0.4);
+}
+
+/* On-Screen Turret HUD Overlay Widgets */
+.turret-hud-overlay {
+  position: absolute;
+  top: 12px;
+  width: 255px;
+  background: rgba(14, 18, 25, 0.92);
+  border: 1px solid #3e4c5e;
+  backdrop-filter: blur(8px);
+  padding: 10px 12px;
+  border-radius: 4px;
+  pointer-events: auto;
+  z-index: 5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.turret-hud-overlay:hover {
+  border-color: #5d728e;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.8), 0 0 12px rgba(52, 152, 219, 0.25);
+}
+
+.turret-hud-overlay.left {
+  left: 14px;
+}
+
+.turret-hud-overlay.right {
+  right: 14px;
+}
+
+.turret-hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.turret-hud-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #f1c40f;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+}
+
+.hud-alert-badge {
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hud-alert-badge.warn {
+  background: #d35400;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(211, 84, 0, 0.7);
+}
+
+.hud-alert-badge.danger {
+  background: #c0392b;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(192, 57, 43, 0.9);
+}
+
+.hud-label {
+  font-size: 10px;
+  font-weight: bold;
+  color: #a0aec0;
+  width: 60px;
+}
+
+.hud-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.hud-bar-row.critical .val-text {
+  color: #ff4d4d;
+  font-weight: bold;
+  animation: pulseAnim 0.6s infinite alternate;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #11141a;
+  border: 1px solid #2d3748;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.25s ease;
+}
+
+.bar-green {
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+}
+
+.bar-amber {
+  background: linear-gradient(90deg, #d35400, #f39c12);
+  box-shadow: 0 0 8px rgba(243, 156, 18, 0.6);
+}
+
+.bar-red {
+  background: linear-gradient(90deg, #962d2d, #e74c3c);
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.85);
+}
+
+.bar-blue {
+  background: linear-gradient(90deg, #2980b9, #3498db);
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
+}
+
+.val-text {
+  width: 60px;
+  text-align: right;
+  font-family: monospace;
+  font-size: 10px;
+}
+
+.turret-btn-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 99;
+}
+
+.modal-content {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 6px;
+  width: 90%;
+  max-width: 650px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #2d3748;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  color: #f1c40f;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.modal-info-box {
+  background: #1f2530;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 14px;
+  border-left: 3px solid #3498db;
+}
+
+.modal-section {
+  margin-bottom: 16px;
+}
+
+.modal-section h3 {
+  font-size: 13px;
+  color: #a0aec0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.workers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.worker-card {
+  background: #1c222c;
+  border: 1px solid #2e3846;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.assign-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.form-select {
+  flex: 1;
+  background: #11141a;
+  color: #fff;
+  border: 1px solid #3e4c5e;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.form-select.sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #2d3748;
+  padding-top: 12px;
+  margin-top: 14px;
+}
+
+/* Turret Spec Grid */
+.turret-spec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #1a202c;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* Roster Styling */
+.roster-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.survivor-roster-row {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.survivor-roster-row.dead {
+  background: #2b1717;
+  border-color: #632525;
+}
+
+.survivor-main-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar-large {
+  font-size: 24px;
+}
+
+.survivor-stats-mini {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.survivor-assign-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+/* Tech Tree */
+.tech-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tech-card {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  padding: 12px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tech-card.researched {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.tech-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tech-header h4 {
+  font-size: 12px;
+  color: #fff;
+}
+
+.tech-status {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffd166;
+}
+
+.tech-card p {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* Expeditions */
+.expedition-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expedition-card {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  padding: 14px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.expedition-card h4 {
+  color: #f1c40f;
+  font-size: 13px;
+}
+
+.help-body {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.help-body ul {
+  margin-left: 18px;
+  margin-top: 8px;
+}
+
+.help-body li {
+  margin-bottom: 6px;
+}
+
+.gameover-stats {
+  background: #1a202c;
+  padding: 14px;
+  border-radius: 4px;
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.text-danger { color: var(--accent-red); }
+.text-accent { color: var(--accent-amber); }
+.text-dim { color: var(--text-dim); }
+
+/* Manual Aim & Priority Enhancements */
+#btn-manual-aim.active {
+  background: #0984e3;
+  border-color: #00cec9;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0, 206, 201, 0.6);
+  animation: pulseManual 1.5s infinite alternate;
+}
+
+@keyframes pulseManual {
+  from { box-shadow: 0 0 4px rgba(0, 206, 201, 0.4); }
+  to { box-shadow: 0 0 12px rgba(0, 206, 201, 0.8); }
+}
+
+.badge-carrier {
+  font-size: 9px;
+  background: #d35400;
+  color: #fff;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+  animation: pulseAnim 0.8s infinite alternate;
+}
+
+.survivor-xp-bar {
+  width: 140px;
+  height: 6px;
+  background: #111;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.survivor-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f1c40f, #e67e22);
+}
+
+.priority-btn-group {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.priority-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 10px;
+  background: #242b35;
+  border: 1px solid #3e4c5e;
+  color: #cbd5e0;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.priority-btn.active {
+  background: #f39c12;
+  border-color: #f1c40f;
+  color: #000;
+  font-weight: bold;
+}
+
+</style>
+</head>
+<body>
+
+  <!-- Top Tactical HUD -->
+  <header class="header-hud">
+    <div class="brand-title">
+      <h1>🛡️ Bunker Protocol</h1>
+      <div class="hud-time-pop">
+        <span id="hud-day">Day 1 - 08:00</span> | <span id="hud-pop">5 Alive</span>
+      </div>
+    </div>
+
+    <!-- Core Resources Bar -->
+    <div class="resource-bar">
+      <div class="res-item res-ammo" title="Turret Ammunition (CRITICAL SUPPLY)">
+        <span class="icon">📦</span> <span>AMMO:</span> <span id="res-ammo">250/1000</span>
+      </div>
+      <div class="res-item" title="Generator Electrical Power">
+        <span class="icon">⚡</span> <span>PWR:</span> <span id="res-power">100/100</span>
+      </div>
+      <div class="res-item" title="Food Rations">
+        <span class="icon">🍲</span> <span>FOOD:</span> <span id="res-food">80/200</span>
+      </div>
+      <div class="res-item" title="Drinking Water">
+        <span class="icon">💧</span> <span>WATER:</span> <span id="res-water">80/200</span>
+      </div>
+      <div class="res-item" title="Scrap Metal & Components">
+        <span class="icon">🔩</span> <span>METAL:</span> <span id="res-metal">60/300</span>
+      </div>
+      <div class="res-item" title="Gunpowder for Munitions">
+        <span class="icon">⚗️</span> <span>POWDER:</span> <span id="res-gunpowder">40/200</span>
+      </div>
+      <div class="res-item" title="Diesel Generator Fuel">
+        <span class="icon">🛢️</span> <span>FUEL:</span> <span id="res-fuel">50/150</span>
+      </div>
+    </div>
+
+    <!-- Threat Radar Warning Display -->
+    <div class="hud-radar-wrap">
+      <div id="hud-radar" class="radar-badge normal">
+        📡 Radar Scanning...
+      </div>
+    </div>
+
+    <!-- Speed & Control Actions -->
+    <div class="hud-controls">
+      <button id="btn-speed-pause" class="btn btn-sm">⏸️ Pause</button>
+      <button id="btn-speed-1x" class="btn btn-sm active">1x</button>
+      <button id="btn-speed-2x" class="btn btn-sm">2x</button>
+      <button id="btn-speed-5x" class="btn btn-sm">5x</button>
+      <button id="btn-manual-aim" class="btn btn-sm" title="Toggle Manual Crosshair Aim (Hotkey: M)">🎯 Manual Aim: OFF</button>
+      <button id="btn-open-roster" class="btn btn-sm btn-primary">👥 Crew</button>
+      <button id="btn-open-research" class="btn btn-sm btn-accent">🔬 Tech</button>
+      <button id="btn-open-expedition" class="btn btn-sm btn-action">🌲 Expedition</button>
+      <button id="btn-audio-toggle" class="btn btn-sm">🔊 Sound</button>
+      <button id="btn-crt-toggle" class="btn btn-sm" title="Toggle Tactical Retro-Military CRT Scanlines (Hotkey: C)">📺 CRT: OFF</button>
+      <button id="btn-open-help" class="btn btn-sm btn-secondary">📖 Guide</button>
+    </div>
+  </header>
+
+  <!-- Viewport Area -->
+  <main class="game-container">
+    <!-- CRT Scanline Tactical Filter Overlay -->
+    <div id="crt-overlay" class="crt-overlay" style="display:none;"></div>
+
+    <!-- Left Turret Floating HUD Widget -->
+    <div id="left-turret-hud" class="turret-hud-overlay left"></div>
+
+    <!-- Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Right Turret Floating HUD Widget -->
+    <div id="right-turret-hud" class="turret-hud-overlay right"></div>
+  </main>
+
+  <!-- Interactive Modal Container -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <!-- Game Scripts -->
+                    
+<script>
+// --- audio.js ---
+// Procedural Web Audio Synthesizer for Bunker Survival
+class SoundSystem {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+    this.masterGain = null;
+    this.initialized = false;
+  }
+
+  init() {
+    if (this.initialized) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.35;
+      this.masterGain.connect(this.ctx.destination);
+      this.initialized = true;
+    } catch (e) {
+      console.warn("Web Audio API not supported", e);
+    }
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.masterGain) {
+      this.masterGain.gain.value = this.muted ? 0 : 0.35;
+    }
+    return this.muted;
+  }
+
+  ensureContext() {
+    if (!this.initialized) this.init();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  // Turret gunshot
+  playGunshot(type = 'normal') {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+
+    // Noise buffer for the crack
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = type === 'heavy' ? 'lowpass' : 'bandpass';
+    filter.frequency.setValueAtTime(type === 'heavy' ? 800 : 1800, t);
+    filter.frequency.exponentialRampToValueAtTime(100, t + 0.07);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(type === 'heavy' ? 0.6 : 0.4, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.07);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start(t);
+
+    // Punch osc
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(type === 'heavy' ? 140 : 220, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.09);
+
+    oscGain.gain.setValueAtTime(0.5, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.09);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  // Empty turret click
+  playDryClick() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.03);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.04);
+  }
+
+  // Reload sound
+  playReload() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    // Click 1 (mag out)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'square';
+    osc1.frequency.setValueAtTime(600, t);
+    osc1.frequency.exponentialRampToValueAtTime(150, t + 0.08);
+    gain1.gain.setValueAtTime(0.25, t);
+    gain1.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+    osc1.start(t);
+    osc1.stop(t + 0.09);
+
+    // Click 2 (mag lock)
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const t2 = this.ctx.currentTime;
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(250, t2);
+      osc2.frequency.exponentialRampToValueAtTime(900, t2 + 0.06);
+      gain2.gain.setValueAtTime(0.35, t2);
+      gain2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.07);
+      osc2.connect(gain2);
+      gain2.connect(this.masterGain);
+      osc2.start(t2);
+      osc2.stop(t2 + 0.08);
+    }, 120);
+  }
+
+  // Zombie hit / death groan
+  playZombieHit() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120 + Math.random() * 40, t);
+    osc.frequency.exponentialRampToValueAtTime(50, t + 0.15);
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.16);
+  }
+
+  // Alarm siren for incoming horde
+  playSiren() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(450, t);
+    osc.frequency.linearRampToValueAtTime(750, t + 0.4);
+    osc.frequency.linearRampToValueAtTime(450, t + 0.8);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.linearRampToValueAtTime(0.2, t + 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.85);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.9);
+  }
+
+  // Craft / UI click
+  playBeep(success = true) {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(success ? 880 : 330, t);
+    if (success) {
+      osc.frequency.setValueAtTime(1174, t + 0.06);
+    }
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.13);
+  }
+
+  // Elevator ding
+  playElevatorDing() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1046.5, t);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.65);
+  }
+
+  // Explosion sound (grenade / brute death / heavy impact)
+  playExplosion() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.4);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.1));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(250, t);
+    filter.frequency.exponentialRampToValueAtTime(40, t + 0.35);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    noise.start(t);
+  }
+
+  // Minigun electric motor spinup whirr & barrel gear chatter
+  playMinigunSpinup() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const now = performance.now();
+    if (this._lastSpinup && now - this._lastSpinup < 1200) return;
+    this._lastSpinup = now;
+
+    const t = this.ctx.currentTime;
+    const dur = 0.55;
+
+    // Motor 1: Sawtooth rotor
+    const osc1 = this.ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(65, t);
+    osc1.frequency.exponentialRampToValueAtTime(360, t + dur);
+
+    // Motor 2: Gear teeth harmonic
+    const osc2 = this.ctx.createOscillator();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(130, t);
+    osc2.frequency.exponentialRampToValueAtTime(720, t + dur);
+
+    // Filter to sweep from dull to sharp metallic buzz
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(250, t);
+    filter.frequency.exponentialRampToValueAtTime(2200, t + dur);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.01, t);
+    gain.gain.linearRampToValueAtTime(0.28, t + dur * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc1.start(t);
+    osc2.start(t);
+    osc1.stop(t + dur);
+    osc2.stop(t + dur);
+  }
+
+  // Atmospheric dark forest night wind breeze
+  playWindBreeze() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const now = performance.now();
+    if (this._lastWind && now - this._lastWind < 6000) return;
+    this._lastWind = now;
+
+    const t = this.ctx.currentTime;
+    const dur = 3.2;
+
+    // Filtered noise swoosh
+    const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      // Simple pinking filter
+      lastOut = (lastOut + 0.025 * white) / 1.025;
+      data[i] = lastOut * 3.5;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // Resonant bandpass filter mimicking wind through trees
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 2.8;
+    filter.frequency.setValueAtTime(220, t);
+    filter.frequency.linearRampToValueAtTime(540, t + dur * 0.45);
+    filter.frequency.linearRampToValueAtTime(180, t + dur);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + dur * 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start(t);
+  }
+
+  // Undead feral attack shriek & guttural vocalization
+  playZombieShriek() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const now = performance.now();
+    if (this._lastShriek && now - this._lastShriek < 800) return;
+    this._lastShriek = now;
+
+    const t = this.ctx.currentTime;
+    const dur = 0.4;
+
+    // Dual detuned screech oscillators
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc2.type = 'sawtooth';
+
+    osc1.frequency.setValueAtTime(360, t);
+    osc1.frequency.linearRampToValueAtTime(460, t + 0.08);
+    osc1.frequency.exponentialRampToValueAtTime(130, t + dur);
+
+    osc2.frequency.setValueAtTime(385, t);
+    osc2.frequency.linearRampToValueAtTime(495, t + 0.08);
+    osc2.frequency.exponentialRampToValueAtTime(145, t + dur);
+
+    // Formant throat filter
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 3.5;
+    filter.frequency.setValueAtTime(1600, t);
+    filter.frequency.exponentialRampToValueAtTime(450, t + dur);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.01, t);
+    gain.gain.linearRampToValueAtTime(0.24, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc1.start(t);
+    osc2.start(t);
+    osc1.stop(t + dur);
+    osc2.stop(t + dur);
+  }
+
+  // Acid spitter spit projectile sound (wet resonant squirt)
+  playAcidSpit() {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const dur = 0.25;
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(480, t);
+    osc.frequency.exponentialRampToValueAtTime(90, t + dur);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, t);
+    filter.frequency.exponentialRampToValueAtTime(300, t + dur);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.32, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(t);
+    osc.stop(t + dur);
+  }
+
+  // Retro CRT switch click
+  playCRTClick(on = true) {
+    if (this.muted || !this.ctx) return;
+    this.ensureContext();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(on ? 1200 : 800, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.04);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.04);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+}
+
+window.soundSystem = new SoundSystem();
+
+
+// --- config.js ---
+// Game Configuration & Constants
+const CONFIG = {
+  CANVAS_WIDTH: 1280,
+  CANVAS_HEIGHT: 820,
+  SURFACE_Y: 240,
+  ELEVATOR_X: 640,
+  ELEVATOR_WIDTH: 56,
+  
+  BUNKER_LEFT: 180,
+  BUNKER_RIGHT: 1100,
+  BUNKER_TOP: 280,
+  FLOOR_HEIGHT: 130,
+  FLOORS_COUNT: 4,
+  ROOMS_PER_FLOOR: 4,
+
+  // Initial Resources
+  INITIAL_RESOURCES: {
+    ammo: 250,       // Crucial focus
+    power: 100,      // Max 100
+    food: 80,
+    water: 80,
+    metal: 60,
+    gunpowder: 40,
+    meds: 5,
+    fuel: 50
+  },
+
+  // Max Resource Capacities
+  RESOURCE_CAPS: {
+    ammo: 1000,
+    power: 100,
+    food: 200,
+    water: 200,
+    metal: 300,
+    gunpowder: 200,
+    meds: 20,
+    fuel: 150
+  },
+
+  // Consumption rates (per survivor per second at 1x)
+  SURVIVOR_HUNGER_RATE: 0.07,
+  SURVIVOR_THIRST_RATE: 0.10,
+  SURVIVOR_FATIGUE_RATE: 0.05,
+  HUNGER_THRESHOLD: 40,
+  THIRST_THRESHOLD: 40,
+  FATIGUE_REST_THRESHOLD: 80,
+  FATIGUE_WAKE_THRESHOLD: 15,
+
+  // Ammo Supply Logistics
+  AMMO_DELIVERY_THRESHOLD: 0.35, // Restock turret when ammo < 35%
+  AMMO_CRATE_DELIVERY_AMOUNT: 60, // Rounds delivered per crate
+
+  // Survivor Progression & Mastery
+  SURVIVOR_MAX_LEVEL: 5,
+  SURVIVOR_LEVEL_TITLES: ['Apprentice', 'Journeyman', 'Specialist', 'Expert', 'Master'],
+  SURVIVOR_XP_PER_SEC_WORKING: 1.5,
+  SURVIVOR_XP_SPECIALTY_MULT: 1.8,
+  SURVIVOR_XP_AMMO_RUN: 40,
+  SURVIVOR_XP_WAVE_SURVIVED: 50,
+
+  // Wave & Threat Timing
+  AMBIENT_SPAWN_INTERVAL_MIN: 15,
+  AMBIENT_SPAWN_INTERVAL_MAX: 30,
+  HORDE_INTERVAL: 95,
+  HORDE_WARNING_TIME: 14,
+  ACID_PUDDLE_DURATION: 8.0,
+  ACID_PUDDLE_DPS: 3.5,
+
+  // Room Definitions (4 floors x 4 columns = 16 rooms)
+  ROOM_TEMPLATES: [
+    // Floor 1: Sub-level 1 (Command & Defense)
+    { id: 'airlock', floor: 1, col: 0, name: 'Airlock Depot', icon: '🚪', color: '#3d4f5d', 
+      desc: 'Dispatches surface scavengers & controls entry.', 
+      produces: null, maxWorkers: 2, powerCost: 1 },
+    { id: 'armory', floor: 1, col: 1, name: 'Munitions Armory', icon: '📦', color: '#684a28', 
+      desc: 'Manufactures turret ammunition from metal & gunpowder.', 
+      produces: 'ammo', rate: 4.0, cost: { metal: 0.4, gunpowder: 0.4 }, maxWorkers: 3, powerCost: 4 },
+    { id: 'security', floor: 1, col: 2, name: 'Security & Radar', icon: '📡', color: '#274b5e', 
+      desc: 'Tracks incoming swarms, increases turret accuracy by 25%.', 
+      produces: null, maxWorkers: 2, powerCost: 3 },
+    { id: 'clinic', floor: 1, col: 3, name: 'Medical Clinic', icon: '🩹', color: '#66222b', 
+      desc: 'Heals injured survivors and manufactures first-aid kits.', 
+      produces: 'meds', rate: 0.08, maxWorkers: 2, powerCost: 2 },
+
+    // Floor 2: Sub-level 2 (Life & Sustenance)
+    { id: 'quarters_1', floor: 2, col: 0, name: 'Living Quarters A', icon: '🛏️', color: '#383b48', 
+      desc: 'Survivors rest here to restore stamina & morale.', 
+      produces: null, maxWorkers: 4, powerCost: 1 },
+    { id: 'hydroponics', floor: 2, col: 1, name: 'Hydroponics Bay', icon: '🌱', color: '#2d5a36', 
+      desc: 'Cultivates fresh crops using nutrient-rich water.', 
+      produces: 'food', rate: 1.2, cost: { water: 0.3 }, maxWorkers: 3, powerCost: 3 },
+    { id: 'water_filter', floor: 2, col: 2, name: 'Water Filtration', icon: '💧', color: '#1f4863', 
+      desc: 'Purifies subterranean well water into drinking water.', 
+      produces: 'water', rate: 1.5, maxWorkers: 2, powerCost: 2 },
+    { id: 'kitchen', floor: 2, col: 3, name: 'Mess Hall & Kitchen', icon: '🍲', color: '#574229', 
+      desc: 'Prepares nutritious meals, boosting survivor morale.', 
+      produces: null, maxWorkers: 2, powerCost: 2 },
+
+    // Floor 3: Sub-level 3 (Industry & Tech)
+    { id: 'quarters_2', floor: 3, col: 0, name: 'Living Quarters B', icon: '🛏️', color: '#383b48', 
+      desc: 'Additional living space for expanded survivor population.', 
+      produces: null, maxWorkers: 4, powerCost: 1 },
+    { id: 'workshop', floor: 3, col: 1, name: 'Fabrication Workshop', icon: '🔧', color: '#504439', 
+      desc: 'Fabricates spare parts, scrap metal, and turret repairs.', 
+      produces: 'metal', rate: 1.0, maxWorkers: 3, powerCost: 4 },
+    { id: 'gunpowder_lab', floor: 3, col: 2, name: 'Chemical & Powder Lab', icon: '⚗️', color: '#4a3356', 
+      desc: 'Synthesizes saltpeter and sulfur into gunpowder for ammo.', 
+      produces: 'gunpowder', rate: 1.2, maxWorkers: 3, powerCost: 3 },
+    { id: 'research', floor: 3, col: 3, name: 'Research Lab', icon: '🔬', color: '#2b445e', 
+      desc: 'Researches defensive technologies and efficiency upgrades.', 
+      produces: 'tech', rate: 0.5, maxWorkers: 2, powerCost: 4 },
+
+    // Floor 4: Sub-level 4 (Deep Infrastructure)
+    { id: 'generator', floor: 4, col: 0, name: 'Diesel Generator', icon: '⚡', color: '#68451f', 
+      desc: 'Main power plant providing electricity to the bunker & turrets.', 
+      produces: 'power', rate: 15.0, cost: { fuel: 0.15 }, maxWorkers: 2, powerCost: 0 },
+    { id: 'bio_refinery', floor: 4, col: 1, name: 'Bio-Fuel Refinery', icon: '🛢️', color: '#494420', 
+      desc: 'Refines organic biomass and deep oil into diesel fuel.', 
+      produces: 'fuel', rate: 0.6, maxWorkers: 2, powerCost: 3 },
+    { id: 'mine', floor: 4, col: 2, name: 'Deep Excavation', icon: '⛏️', color: '#3a3532', 
+      desc: 'Mines subterranean rock for raw metals and sulfur.', 
+      produces: 'metal', rate: 1.4, maxWorkers: 3, powerCost: 3 },
+    { id: 'life_support', floor: 4, col: 3, name: 'Air & Life Support', icon: '🌀', color: '#274b4e', 
+      desc: 'Circulates clean oxygen, preventing bunker suffocation.', 
+      produces: null, maxWorkers: 2, powerCost: 3 }
+  ],
+
+  // Turret Level Stats
+  TURRET_TIERS: [
+    { level: 1, name: 'Sentry Gun 9mm', damage: 24, fireRate: 0.22, range: 340, maxAmmo: 100, upgradeCost: { metal: 50 } },
+    { level: 2, name: 'Twin Autocannon', damage: 42, fireRate: 0.15, range: 400, maxAmmo: 200, upgradeCost: { metal: 120, gunpowder: 40 } },
+    { level: 3, name: 'Vulcan Minigun', damage: 62, fireRate: 0.08, range: 480, maxAmmo: 400, upgradeCost: { metal: 220, gunpowder: 80 } },
+    { level: 4, name: 'Heavy Plasma Cannon', damage: 180, fireRate: 0.35, range: 560, maxAmmo: 600, upgradeCost: null }
+  ],
+
+  // Zombie Types
+  ZOMBIE_TYPES: {
+    shambler: { name: 'Walker', hp: 55, speed: 22, damage: 8, color: '#4a754e', size: 16, reward: { metal: 3, gunpowder: 2 } },
+    runner: { name: 'Feral Runner', hp: 35, speed: 58, damage: 12, color: '#883b3b', size: 14, reward: { metal: 2, gunpowder: 3 } },
+    armored: { name: 'Riot Armored', hp: 140, speed: 18, damage: 15, color: '#3f4e56', size: 18, reward: { metal: 8, gunpowder: 4 } },
+    spitter: { name: 'Acid Spitter', hp: 50, speed: 24, range: 250, damage: 14, color: '#68882d', size: 15, reward: { metal: 4, gunpowder: 6 } },
+    brute: { name: 'Goliath Brute', hp: 450, speed: 14, damage: 35, color: '#7a2d2d', size: 24, reward: { metal: 18, gunpowder: 15 } }
+  },
+
+  // Initial Survivors
+  INITIAL_SURVIVORS: [
+    { id: 's1', name: 'Marcus Cole', role: 'Chief Gunsmith', skill: 'Munitions', avatar: '👨‍🔧', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 95, assignedRoom: 'armory', specialty: 'armory' },
+    { id: 's2', name: 'Elena Vance', role: 'Combat Engineer', skill: 'Mechanic', avatar: '👩‍🏭', hp: 100, maxHp: 100, hunger: 85, thirst: 90, fatigue: 0, morale: 90, assignedRoom: 'workshop', specialty: 'workshop' },
+    { id: 's3', name: 'Doc Sarah Chen', role: 'Field Physician', skill: 'Medicine', avatar: '👩‍⚕️', hp: 100, maxHp: 100, hunger: 95, thirst: 95, fatigue: 0, morale: 88, assignedRoom: 'clinic', specialty: 'clinic' },
+    { id: 's4', name: 'Toby Miller', role: 'Agri-Specialist', skill: 'Botany', avatar: '👨‍🌾', hp: 100, maxHp: 100, hunger: 90, thirst: 90, fatigue: 0, morale: 92, assignedRoom: 'hydroponics', specialty: 'hydroponics' },
+    { id: 's5', name: 'Aiden Brooks', role: 'Security Guard', skill: 'Ballistics', avatar: '👮‍♂️', hp: 100, maxHp: 100, hunger: 88, thirst: 85, fatigue: 0, morale: 90, assignedRoom: 'security', specialty: 'security' }
+  ]
+};
+
+window.CONFIG = CONFIG;
+
+
+// --- particles.js ---
+// Visual FX and Particle System
+class ParticleSystem {
+  constructor() {
+    this.particles = [];
+    this.tracers = [];
+    this.floatingTexts = [];
+    this.rainDrops = [];
+    this.leaves = [];
+    this.spitProjectiles = [];
+    this.bloodDecals = [];
+    this.fogPuffs = [];
+    this.chimneySmoke = [];
+    this.acidPuddles = [];
+
+    // Init ambient forest leaves
+    for (let i = 0; i < 24; i++) {
+      this.leaves.push({
+        x: Math.random() * 1280,
+        y: Math.random() * 240,
+        speedX: -0.9 - Math.random() * 1.4,
+        speedY: 0.35 + Math.random() * 0.7,
+        size: 2 + Math.random() * 3,
+        color: Math.random() > 0.5 ? '#3b5e28' : '#735c24'
+      });
+    }
+
+    // Init drifting ground fog wisps across the surface
+    for (let i = 0; i < 20; i++) {
+      this.fogPuffs.push({
+        x: (i / 20) * 1380 - 50 + (Math.random() * 40 - 20),
+        y: CONFIG.SURFACE_Y - 30 + Math.random() * 35,
+        radiusX: 55 + Math.random() * 45,
+        radiusY: 18 + Math.random() * 16,
+        speedX: -14 - Math.random() * 18,
+        baseAlpha: 0.12 + Math.random() * 0.14,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  // Create persistent blood decal on the ground
+  spawnBloodDecal(x, y, color = '#680c0c', baseRadius = 7, splatCount = 6) {
+    const groundY = CONFIG.SURFACE_Y - 2 + Math.random() * 4;
+    const splats = [];
+    for (let i = 0; i < splatCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 3 + Math.random() * (baseRadius * 2.2);
+      splats.push({
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist * 0.32, // Flattened along ground perspective
+        r: 1.2 + Math.random() * (baseRadius * 0.55)
+      });
+    }
+
+    this.bloodDecals.push({
+      x,
+      y: groundY,
+      color,
+      coreColor: '#360505',
+      baseRadius,
+      splats,
+      alpha: 0.88,
+      life: 240, // Decal lasts for 4 minutes
+      maxLife: 240
+    });
+
+    // Cap decals to 140 max to keep performance buttery smooth
+    if (this.bloodDecals.length > 140) {
+      this.bloodDecals.shift();
+    }
+  }
+
+  // Create blood or flesh splatter
+  spawnBlood(x, y, count = 7, color = '#a31818') {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.2 + Math.random() * 4.0;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.2,
+        life: 0.6 + Math.random() * 0.45,
+        maxLife: 1.0,
+        size: 1.5 + Math.random() * 2.5,
+        color: color,
+        gravity: 9.8
+      });
+    }
+  }
+
+  // Muzzle flash with dynamic light flare
+  spawnMuzzleFlash(x, y, angle) {
+    this.particles.push({
+      x: x + Math.cos(angle) * 18,
+      y: y + Math.sin(angle) * 18,
+      vx: 0, vy: 0,
+      life: 0.09,
+      maxLife: 0.09,
+      size: 14 + Math.random() * 8,
+      color: '#ffea75',
+      type: 'flash',
+      angle: angle
+    });
+  }
+
+  // Brass bullet shell casing with ground bounce
+  spawnCasing(x, y, dir = -1) {
+    this.particles.push({
+      x, y,
+      vx: dir * (1.8 + Math.random() * 2.2),
+      vy: -2.8 - Math.random() * 2.0,
+      life: 1.2,
+      maxLife: 1.2,
+      size: 3,
+      color: '#d4af37',
+      gravity: 14,
+      isCasing: true,
+      bounces: 0
+    });
+  }
+
+  // Sparks / explosion debris
+  spawnSparks(x, y, count = 12, color = '#ff9922') {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2.5 + Math.random() * 5.5;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2.2,
+        life: 0.45 + Math.random() * 0.35,
+        maxLife: 0.8,
+        size: 2.2,
+        color: color,
+        gravity: 8.5
+      });
+    }
+  }
+
+  // Chimney smoke puff
+  spawnSmokePuff(x, y, radius = 6, color = 'rgba(210, 215, 220, 0.4)') {
+    this.chimneySmoke.push({
+      x, y,
+      vx: -8 - Math.random() * 8,
+      vy: -14 - Math.random() * 10,
+      radius,
+      color,
+      life: 2.2,
+      maxLife: 2.2
+    });
+  }
+
+  // Bullet tracer
+  addTracer(x1, y1, x2, y2, color = '#ffe57f') {
+    this.tracers.push({
+      x1, y1, x2, y2,
+      life: 0.08,
+      maxLife: 0.08,
+      color
+    });
+  }
+
+  // Floating text (e.g. +ammo, damage)
+  addFloatingText(text, x, y, color = '#ffffff') {
+    this.floatingTexts.push({
+      text,
+      x, y,
+      vy: -24,
+      life: 1.3,
+      maxLife: 1.3,
+      color
+    });
+  }
+
+  // Acid projectile
+  spawnAcidSpit(x, y, targetX, targetY, damage) {
+    const angle = Math.atan2(targetY - y, targetX - x);
+    const speed = 250;
+    this.spitProjectiles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      targetX, targetY,
+      damage,
+      life: 2.0
+    });
+  }
+
+  // Acid Puddle Hazard on the ground
+  spawnAcidPuddle(x, y, damage = 3.5, duration = CONFIG.ACID_PUDDLE_DURATION || 8.0) {
+    this.acidPuddles.push({
+      x: Math.max(80, Math.min(1200, x)),
+      y: CONFIG.SURFACE_Y - 2,
+      radius: 26,
+      damage: damage,
+      life: duration,
+      maxLife: duration,
+      sizzleTimer: 0,
+      bubbles: [
+        { ox: -10, oy: -1, r: 2.5, phase: 0 },
+        { ox: 5, oy: -2, r: 3.5, phase: 2 },
+        { ox: 13, oy: 0, r: 2.0, phase: 4 }
+      ]
+    });
+  }
+
+  update(dt, dayTime = 12) {
+    // Update generic particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+      p.x += (p.vx || 0) * dt * 40;
+      p.y += (p.vy || 0) * dt * 40;
+      if (p.gravity) {
+        p.vy += p.gravity * dt;
+      }
+
+      // Casing ground bounce
+      if (p.isCasing && p.y >= CONFIG.SURFACE_Y - 2 && (p.bounces || 0) < 2) {
+        p.y = CONFIG.SURFACE_Y - 2;
+        p.vy = -p.vy * 0.42;
+        p.vx *= 0.6;
+        p.bounces = (p.bounces || 0) + 1;
+      }
+    }
+
+    // Update tracers
+    for (let i = this.tracers.length - 1; i >= 0; i--) {
+      const t = this.tracers[i];
+      t.life -= dt;
+      if (t.life <= 0) {
+        this.tracers.splice(i, 1);
+      }
+    }
+
+    // Update floating texts
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = this.floatingTexts[i];
+      ft.life -= dt;
+      ft.y += ft.vy * dt;
+      if (ft.life <= 0) {
+        this.floatingTexts.splice(i, 1);
+      }
+    }
+
+    // Update leaves
+    for (const leaf of this.leaves) {
+      leaf.x += leaf.speedX;
+      leaf.y += leaf.speedY;
+      if (leaf.x < 0) leaf.x = 1280;
+      if (leaf.y > CONFIG.SURFACE_Y) {
+        leaf.y = 0;
+        leaf.x = Math.random() * 1280;
+      }
+    }
+
+    // Update ground fog wisps
+    for (const f of this.fogPuffs) {
+      f.x += f.speedX * dt;
+      f.phase += dt * 0.8;
+      if (f.x < -100) {
+        f.x = 1380;
+        f.y = CONFIG.SURFACE_Y - 30 + Math.random() * 35;
+      }
+    }
+
+    // Update chimney smoke
+    for (let i = this.chimneySmoke.length - 1; i >= 0; i--) {
+      const s = this.chimneySmoke[i];
+      s.life -= dt;
+      if (s.life <= 0) {
+        this.chimneySmoke.splice(i, 1);
+        continue;
+      }
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.radius += dt * 6.5;
+    }
+
+    // Update blood decals (slow fade over time)
+    for (let i = this.bloodDecals.length - 1; i >= 0; i--) {
+      const d = this.bloodDecals[i];
+      d.life -= dt;
+      if (d.life <= 0) {
+        this.bloodDecals.splice(i, 1);
+      }
+    }
+
+    // Update acid spit
+    for (let i = this.spitProjectiles.length - 1; i >= 0; i--) {
+      const s = this.spitProjectiles[i];
+      s.life -= dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+
+      // Check impact with ground or house
+      if (s.y >= CONFIG.SURFACE_Y - 10 || Math.abs(s.x - 640) < 60 || s.life <= 0) {
+        this.spawnBlood(s.x, s.y, 10, '#55ff22');
+        this.spawnBloodDecal(s.x, CONFIG.SURFACE_Y, '#2f7516', 8, 5);
+        this.spawnAcidPuddle(s.x, CONFIG.SURFACE_Y, s.damage);
+        if (window.gameEngine) {
+          window.gameEngine.damageHouse(s.damage);
+        }
+        this.spitProjectiles.splice(i, 1);
+      }
+    }
+
+    // Update acid puddles (toxic ground hazards)
+    for (let i = this.acidPuddles.length - 1; i >= 0; i--) {
+      const p = this.acidPuddles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.acidPuddles.splice(i, 1);
+        continue;
+      }
+
+      // Sizzle steam and toxic bubble particles
+      p.sizzleTimer -= dt;
+      if (p.sizzleTimer <= 0) {
+        p.sizzleTimer = 0.14;
+        const ox = (Math.random() - 0.5) * p.radius * 1.5;
+        this.particles.push({
+          x: p.x + ox,
+          y: p.y - 2,
+          vx: (Math.random() - 0.5) * 6,
+          vy: -12 - Math.random() * 10,
+          life: 0.5,
+          maxLife: 0.5,
+          size: 2.0,
+          color: '#7bed9f'
+        });
+      }
+
+      // Area of effect damage over time
+      const engine = window.gameEngine;
+      if (engine) {
+        // Damage house barricade if puddle overlaps cabin (cabin x: 575 to 705)
+        if (p.x >= 550 && p.x <= 730) {
+          engine.damageHouse(CONFIG.ACID_PUDDLE_DPS * dt);
+        }
+        // Damage turrets if puddle near turret
+        if (Math.abs(p.x - engine.leftTurret.x) < p.radius + 15) {
+          engine.leftTurret.health = Math.max(0, engine.leftTurret.health - CONFIG.ACID_PUDDLE_DPS * dt * 0.5);
+        }
+        if (Math.abs(p.x - engine.rightTurret.x) < p.radius + 15) {
+          engine.rightTurret.health = Math.max(0, engine.rightTurret.health - CONFIG.ACID_PUDDLE_DPS * dt * 0.5);
+        }
+        // Damage survivors walking across surface
+        for (const s of engine.survivors) {
+          if (!s.isDead && s.y <= CONFIG.SURFACE_Y + 5 && Math.abs(s.x - p.x) < p.radius + 10) {
+            s.hp = Math.max(0, s.hp - CONFIG.ACID_PUDDLE_DPS * dt);
+            if (Math.random() < 0.04 && !s.speechText) {
+              s.say("Toxic acid burn!", 2);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Draw persistent ground blood decals
+  drawDecals(ctx) {
+    for (const d of this.bloodDecals) {
+      const alpha = Math.min(0.85, (d.life / d.maxLife) * 1.2);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Base pool
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.ellipse(d.x, d.y, d.baseRadius * 1.3, d.baseRadius * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core dried dark spot
+      ctx.fillStyle = d.coreColor || '#360505';
+      ctx.beginPath();
+      ctx.ellipse(d.x + 1, d.y, d.baseRadius * 0.7, d.baseRadius * 0.28, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Droplet splatters radiating outwards
+      ctx.fillStyle = d.color;
+      for (const sp of d.splats) {
+        ctx.beginPath();
+        ctx.arc(d.x + sp.dx, d.y + sp.dy, sp.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // Draw atmospheric ground fog and mist
+  drawFog(ctx, dayTime = 12) {
+    const isNight = dayTime < 6.0 || dayTime >= 20.0;
+    const isDuskDawn = (dayTime >= 6.0 && dayTime < 8.5) || (dayTime >= 17.5 && dayTime < 20.0);
+    
+    // Thicker fog at night & dusk/dawn
+    let timeMultiplier = 0.4;
+    let fogColorInner, fogColorOuter;
+
+    if (isNight) {
+      timeMultiplier = 1.25;
+      fogColorInner = 'rgba(40, 58, 75, ';
+      fogColorOuter = 'rgba(20, 32, 45, 0)';
+    } else if (isDuskDawn) {
+      timeMultiplier = 0.85;
+      fogColorInner = 'rgba(120, 110, 105, ';
+      fogColorOuter = 'rgba(70, 65, 60, 0)';
+    } else {
+      timeMultiplier = 0.45;
+      fogColorInner = 'rgba(215, 230, 240, ';
+      fogColorOuter = 'rgba(180, 200, 210, 0)';
+    }
+
+    ctx.save();
+    for (const f of this.fogPuffs) {
+      const wave = Math.sin(f.phase) * 0.25 + 0.75;
+      const alpha = f.baseAlpha * timeMultiplier * wave;
+      if (alpha <= 0.01) continue;
+
+      const grad = ctx.createRadialGradient(f.x, f.y, f.radiusY * 0.3, f.x, f.y, f.radiusX);
+      grad.addColorStop(0, fogColorInner + alpha.toFixed(3) + ')');
+      grad.addColorStop(0.7, fogColorInner + (alpha * 0.45).toFixed(3) + ')');
+      grad.addColorStop(1, fogColorOuter);
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, f.radiusX, f.radiusY, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  draw(ctx) {
+    // Draw chimney smoke
+    for (const s of this.chimneySmoke) {
+      const alpha = Math.max(0, (s.life / s.maxLife) * 0.38);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw leaves
+    for (const leaf of this.leaves) {
+      ctx.fillStyle = leaf.color;
+      ctx.beginPath();
+      ctx.arc(leaf.x, leaf.y, leaf.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw bullet tracers
+    for (const t of this.tracers) {
+      const alpha = Math.max(0, t.life / t.maxLife);
+      ctx.save();
+      ctx.strokeStyle = t.color;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(t.x1, t.y1);
+      ctx.lineTo(t.x2, t.y2);
+      ctx.stroke();
+
+      // Glow core
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw ground acid puddles
+    for (const p of this.acidPuddles) {
+      const alpha = Math.min(0.88, (p.life / p.maxLife) * 1.3);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = '#2ed573';
+      ctx.shadowBlur = 12;
+
+      // Outer acidic burn ring
+      ctx.fillStyle = '#1e5e1b';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.radius * 1.25, p.radius * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing toxic green core pool
+      ctx.fillStyle = '#2ed573';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.radius * 0.95, p.radius * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bubbles
+      ctx.fillStyle = '#7bed9f';
+      for (const b of p.bubbles) {
+        b.phase += 0.05;
+        const bScale = (Math.sin(b.phase) + 1) * 0.5;
+        ctx.beginPath();
+        ctx.arc(p.x + b.ox, p.y + b.oy, b.r * bScale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Draw acid spit
+    for (const s of this.spitProjectiles) {
+      ctx.save();
+      ctx.fillStyle = '#66ff22';
+      ctx.shadowColor = '#66ff22';
+      ctx.shadowBlur = 9;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw particles
+    for (const p of this.particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (p.type === 'flash') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = '#ffea75';
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.isCasing) {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 3, 1.5);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Draw floating texts
+    for (const ft of this.floatingTexts) {
+      const alpha = Math.max(0, ft.life / ft.maxLife);
+      ctx.save();
+      ctx.font = 'bold 12px "Courier New", monospace';
+      ctx.fillStyle = ft.color;
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 5;
+      ctx.globalAlpha = alpha;
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.restore();
+    }
+  }
+}
+
+window.ParticleSystem = ParticleSystem;
+
+
+// --- turrets.js ---
+// Automated Defensive Turrets System with Target Prioritization, Armor Penetration, and Manual Crosshair Control
+class Turret {
+  constructor(side, x, y) {
+    this.side = side; // 'left' or 'right'
+    this.x = x;
+    this.y = y;
+    this.tierIndex = 0;
+    this.stats = { ...CONFIG.TURRET_TIERS[0] };
+    this.ammo = this.stats.maxAmmo;
+    this.health = 100;
+    this.maxHealth = 100;
+    this.angle = side === 'left' ? Math.PI : 0; // Default facing outward
+    this.targetAngle = this.angle;
+    this.target = null;
+    this.cooldown = 0;
+    this.recoil = 0;
+    this.isReloading = false;
+    this.reloadTimer = 0;
+    this.autoFire = true;
+    this.kills = 0;
+
+    // Target Prioritization: 'nearest', 'lowest_hp', 'strongest', 'boss'
+    this.priorityMode = 'nearest';
+    this.wasTargeting = false;
+  }
+
+  setPriority(mode) {
+    const validModes = ['nearest', 'lowest_hp', 'strongest', 'boss'];
+    if (validModes.includes(mode)) {
+      this.priorityMode = mode;
+      if (window.gameEngine) {
+        window.gameEngine.particles.addFloatingText(`PRIORITY: ${mode.toUpperCase()}`, this.x - 30, this.y - 30, '#ffd700');
+      }
+    }
+  }
+
+  cyclePriority() {
+    const modes = ['nearest', 'lowest_hp', 'strongest', 'boss'];
+    const idx = modes.indexOf(this.priorityMode);
+    this.priorityMode = modes[(idx + 1) % modes.length];
+    if (window.soundSystem) window.soundSystem.playBeep(true);
+    if (window.gameEngine) {
+      window.gameEngine.particles.addFloatingText(`PRIORITY: ${this.priorityMode.toUpperCase()}`, this.x - 30, this.y - 30, '#ffd700');
+    }
+  }
+
+  upgrade() {
+    if (this.tierIndex < CONFIG.TURRET_TIERS.length - 1) {
+      const nextTier = CONFIG.TURRET_TIERS[this.tierIndex + 1];
+      const cost = nextTier.upgradeCost;
+      const res = window.gameEngine.resources;
+      
+      // Check resource cost
+      if (res.metal >= cost.metal && (!cost.gunpowder || res.gunpowder >= cost.gunpowder)) {
+        res.metal -= cost.metal;
+        if (cost.gunpowder) res.gunpowder -= cost.gunpowder;
+        this.tierIndex++;
+        this.stats = { ...CONFIG.TURRET_TIERS[this.tierIndex] };
+        this.ammo = this.stats.maxAmmo;
+        this.maxHealth += 50;
+        this.health = this.maxHealth;
+        window.soundSystem.playBeep(true);
+        window.gameEngine.particles.spawnSparks(this.x, this.y, 25, '#44ffaa');
+        window.gameEngine.particles.addFloatingText("UPGRADED!", this.x - 20, this.y - 30, '#44ffaa');
+        return true;
+      }
+    }
+    window.soundSystem.playBeep(false);
+    return false;
+  }
+
+  repair() {
+    const res = window.gameEngine.resources;
+    if (this.health < this.maxHealth && res.metal >= 10) {
+      res.metal -= 10;
+      this.health = Math.min(this.maxHealth, this.health + 40);
+      window.soundSystem.playBeep(true);
+      window.gameEngine.particles.spawnSparks(this.x, this.y, 15, '#ffaa33');
+      window.gameEngine.particles.addFloatingText("+40 HP REPAIRED", this.x - 30, this.y - 25, '#ffaa33');
+      return true;
+    }
+    return false;
+  }
+
+  reload() {
+    if (this.isReloading || this.ammo >= this.stats.maxAmmo) return false;
+    const res = window.gameEngine.resources;
+    const needed = this.stats.maxAmmo - this.ammo;
+    const loadAmount = Math.min(needed, res.ammo);
+
+    if (loadAmount > 0) {
+      this.isReloading = true;
+      this.reloadTimer = 1.0; // 1s reload delay
+      res.ammo -= loadAmount;
+      this.pendingAmmo = loadAmount;
+      window.soundSystem.playReload();
+      window.gameEngine.particles.addFloatingText("RELOADING...", this.x - 25, this.y - 25, '#ffe57f');
+      return true;
+    } else {
+      window.soundSystem.playDryClick();
+      window.gameEngine.particles.addFloatingText("OUT OF AMMO STOCK!", this.x - 40, this.y - 25, '#ff4444');
+      return false;
+    }
+  }
+
+  calculateDamage(target) {
+    let rawDamage = this.stats.damage * (1 + (Math.random() * 0.2 - 0.1));
+    const engine = window.gameEngine;
+    if (engine && engine.techTree.heavyCaliber) {
+      rawDamage *= 1.3;
+    }
+
+    // Critical Hit calculation (15% chance for +50% damage)
+    const isCrit = Math.random() < 0.15;
+    if (isCrit) {
+      rawDamage *= 1.5;
+    }
+
+    // Armor Penetration calculation vs Riot Armored
+    if (target && target.typeKey === 'armored') {
+      let ap = 0.15; // Tier 0 base AP
+      if (this.tierIndex === 1) ap = 0.50; // Autocannon
+      else if (this.tierIndex === 2) ap = 0.75; // Vulcan Minigun
+      else if (this.tierIndex === 3) ap = 1.00; // Plasma Cannon
+
+      if (engine && engine.techTree.heavyCaliber) ap += 0.35;
+      ap = Math.min(1.0, ap);
+
+      // Armored zombies take reduced damage if low AP
+      const armorReduction = 0.5 + 0.5 * ap;
+      rawDamage *= armorReduction;
+    }
+
+    return { damage: rawDamage, isCrit };
+  }
+
+  update(dt, zombies) {
+    // Handle reload timer
+    if (this.isReloading) {
+      this.reloadTimer -= dt;
+      if (this.reloadTimer <= 0) {
+        this.ammo += this.pendingAmmo;
+        this.pendingAmmo = 0;
+        this.isReloading = false;
+        window.gameEngine.particles.addFloatingText(`+${this.ammo} READY!`, this.x - 20, this.y - 25, '#55ff55');
+      }
+    }
+
+    if (this.cooldown > 0) {
+      this.cooldown -= dt;
+    }
+    if (this.recoil > 0) {
+      this.recoil = Math.max(0, this.recoil - dt * 25);
+    }
+
+    // Auto-reload from bunker if auto-conduit tech researched
+    if (window.gameEngine.techTree.autoConduit && this.ammo < this.stats.maxAmmo * 0.3 && !this.isReloading) {
+      this.reload();
+    }
+
+    const engine = window.gameEngine;
+    const isManual = engine && engine.manualAim;
+
+    if (isManual) {
+      // Manual aiming mode: rotate towards mouse cursor
+      this.targetAngle = Math.atan2(engine.mouseY - this.y, engine.mouseX - this.x);
+      let diff = this.targetAngle - this.angle;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      this.angle += diff * Math.min(1, dt * 18);
+      this.target = null;
+      return;
+    }
+
+    // Autonomous Mode: Find Target based on Priority
+    this.findTarget(zombies);
+
+    // Aim smoothly towards target
+    if (this.target && this.target.hp > 0) {
+      const targetCenterY = this.target.y - this.target.size;
+      this.targetAngle = Math.atan2(targetCenterY - this.y, this.target.x - this.x);
+
+      let diff = this.targetAngle - this.angle;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      this.angle += diff * Math.min(1, dt * 14);
+
+      // Minigun spinup audio hook
+      if (!this.wasTargeting && this.tierIndex === 2 && window.soundSystem && window.soundSystem.playMinigunSpinup) {
+        window.soundSystem.playMinigunSpinup();
+      }
+      this.wasTargeting = true;
+
+      // Auto Fire if aligned and in range
+      if (this.autoFire && Math.abs(diff) < 0.35 && this.cooldown <= 0 && !this.isReloading) {
+        this.fire();
+      }
+    } else {
+      this.wasTargeting = false;
+      // Idle resting angle
+      const defaultAngle = this.side === 'left' ? Math.PI : 0;
+      let diff = defaultAngle - this.angle;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      this.angle += diff * Math.min(1, dt * 4);
+    }
+  }
+
+  findTarget(zombies) {
+    const candidates = [];
+    for (const z of zombies) {
+      if (z.hp <= 0) continue;
+      // Flank preference
+      if (this.side === 'left' && z.x > 670) continue;
+      if (this.side === 'right' && z.x < 610) continue;
+
+      const dist = Math.hypot(z.x - this.x, z.y - this.y);
+      if (dist <= this.stats.range) {
+        candidates.push({ zombie: z, dist });
+      }
+    }
+
+    if (candidates.length === 0) {
+      this.target = null;
+      return;
+    }
+
+    // Apply prioritization mode
+    if (this.priorityMode === 'nearest') {
+      candidates.sort((a, b) => a.dist - b.dist);
+    } else if (this.priorityMode === 'lowest_hp') {
+      candidates.sort((a, b) => a.zombie.hp - b.zombie.hp);
+    } else if (this.priorityMode === 'strongest') {
+      candidates.sort((a, b) => b.zombie.maxHp - a.zombie.maxHp);
+    } else if (this.priorityMode === 'boss') {
+      const typeRank = { brute: 4, spitter: 3, armored: 2, runner: 1, shambler: 0 };
+      candidates.sort((a, b) => {
+        const rankA = typeRank[a.zombie.typeKey] || 0;
+        const rankB = typeRank[b.zombie.typeKey] || 0;
+        if (rankB !== rankA) return rankB - rankA;
+        return a.dist - b.dist;
+      });
+    }
+
+    this.target = candidates[0].zombie;
+  }
+
+  fire() {
+    if (this.ammo <= 0) {
+      window.soundSystem.playDryClick();
+      this.cooldown = 0.6;
+      window.gameEngine.particles.addFloatingText("NO AMMO!", this.x - 20, this.y - 20, '#ff4444');
+      return;
+    }
+
+    this.ammo--;
+    this.cooldown = this.stats.fireRate;
+    this.recoil = 6;
+
+    // Gunshot audio
+    window.soundSystem.playGunshot(this.tierIndex >= 2 ? 'heavy' : 'normal');
+
+    // Muzzle flash and shell casing
+    const barrelLength = 22;
+    const nozzleX = this.x + Math.cos(this.angle) * barrelLength;
+    const nozzleY = this.y + Math.sin(this.angle) * barrelLength;
+    window.gameEngine.particles.spawnMuzzleFlash(nozzleX, nozzleY, this.angle);
+    window.gameEngine.particles.spawnCasing(this.x, this.y, this.side === 'left' ? 1 : -1);
+
+    // Hit calculation
+    if (this.target && this.target.hp > 0) {
+      const hitX = this.target.x + (Math.random() * 8 - 4);
+      const hitY = this.target.y - this.target.size * 0.7 + (Math.random() * 6 - 3);
+      window.gameEngine.particles.addTracer(nozzleX, nozzleY, hitX, hitY);
+
+      const { damage, isCrit } = this.calculateDamage(this.target);
+      if (isCrit) {
+        window.gameEngine.particles.addFloatingText("CRIT!", hitX, hitY - 15, '#ffd700');
+      }
+
+      const dead = this.target.takeDamage(damage);
+      if (dead) {
+        this.kills++;
+        this.target = null;
+      }
+    } else {
+      const blindX = this.x + Math.cos(this.angle) * this.stats.range;
+      const blindY = this.y + Math.sin(this.angle) * this.stats.range;
+      window.gameEngine.particles.addTracer(nozzleX, nozzleY, blindX, blindY);
+    }
+  }
+
+  // Manual Trigger Fire along current crosshair angle
+  fireManual(targetX, targetY) {
+    if (this.cooldown > 0 || this.isReloading) return false;
+
+    if (this.ammo <= 0) {
+      window.soundSystem.playDryClick();
+      this.cooldown = 0.5;
+      window.gameEngine.particles.addFloatingText("OUT OF AMMO!", this.x - 20, this.y - 20, '#ff4444');
+      return false;
+    }
+
+    this.ammo--;
+    this.cooldown = this.stats.fireRate;
+    this.recoil = 7;
+
+    window.soundSystem.playGunshot(this.tierIndex >= 2 ? 'heavy' : 'normal');
+
+    const barrelLength = 24;
+    const nozzleX = this.x + Math.cos(this.angle) * barrelLength;
+    const nozzleY = this.y + Math.sin(this.angle) * barrelLength;
+    window.gameEngine.particles.spawnMuzzleFlash(nozzleX, nozzleY, this.angle);
+    window.gameEngine.particles.spawnCasing(this.x, this.y, this.side === 'left' ? 1 : -1);
+
+    // Raycast hit detection against all active zombies
+    const engine = window.gameEngine;
+    let hitZombie = null;
+    let minT = Infinity;
+
+    const dirX = Math.cos(this.angle);
+    const dirY = Math.sin(this.angle);
+
+    for (const z of engine.zombies) {
+      if (z.hp <= 0) continue;
+      const toZx = z.x - nozzleX;
+      const toZy = (z.y - z.size * 0.6) - nozzleY;
+      const proj = toZx * dirX + toZy * dirY;
+
+      if (proj > 0 && proj < this.stats.range) {
+        const perpX = toZx - proj * dirX;
+        const perpY = toZy - proj * dirY;
+        const perpDist = Math.hypot(perpX, perpY);
+
+        if (perpDist <= z.size * 1.3) {
+          if (proj < minT) {
+            minT = proj;
+            hitZombie = z;
+          }
+        }
+      }
+    }
+
+    if (hitZombie) {
+      const hitX = hitZombie.x + (Math.random() * 6 - 3);
+      const hitY = hitZombie.y - hitZombie.size * 0.6 + (Math.random() * 6 - 3);
+      engine.particles.addTracer(nozzleX, nozzleY, hitX, hitY, '#ffd700');
+
+      const { damage, isCrit } = this.calculateDamage(hitZombie);
+      if (isCrit) {
+        engine.particles.addFloatingText("CRIT!", hitX, hitY - 15, '#ffd700');
+      }
+
+      const dead = hitZombie.takeDamage(damage);
+      if (dead) this.kills++;
+    } else {
+      const endX = nozzleX + dirX * this.stats.range;
+      const endY = nozzleY + dirY * this.stats.range;
+      engine.particles.addTracer(nozzleX, nozzleY, endX, endY);
+    }
+
+    return true;
+  }
+
+  draw(ctx) {
+    const engine = window.gameEngine;
+    const isManual = engine && engine.manualAim;
+
+    // Laser aim guide in autonomous or manual mode
+    if (isManual) {
+      this.drawManualLaserGuide(ctx);
+    } else if (this.target && this.target.hp > 0 && this.ammo > 0) {
+      this.drawLaserAimGuide(ctx);
+    }
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Tripod / Mounting Base
+    ctx.fillStyle = '#222629';
+    ctx.beginPath();
+    ctx.moveTo(-12, 12);
+    ctx.lineTo(12, 12);
+    ctx.lineTo(6, -2);
+    ctx.lineTo(-6, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Health Bar underneath base
+    const hpRatio = Math.max(0, this.health / this.maxHealth);
+    ctx.fillStyle = '#441111';
+    ctx.fillRect(-16, 15, 32, 4);
+    ctx.fillStyle = hpRatio > 0.5 ? '#44cc44' : hpRatio > 0.25 ? '#ffaa22' : '#ff3333';
+    ctx.fillRect(-16, 15, 32 * hpRatio, 4);
+
+    // Ammo count badge
+    ctx.fillStyle = this.ammo === 0 ? '#ff2222' : this.ammo < (this.stats.maxAmmo * 0.35) ? '#ff9900' : '#44ee77';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${this.ammo}/${this.stats.maxAmmo}`, 0, 27);
+
+    // Priority badge
+    ctx.fillStyle = '#a0aec0';
+    ctx.font = '8px monospace';
+    ctx.fillText(this.priorityMode.toUpperCase().slice(0, 4), 0, 36);
+
+    // Rotating Gun Turret Pod
+    ctx.rotate(this.angle);
+
+    const recoilOffset = -this.recoil;
+
+    // Dual or Quad Gun Barrels
+    ctx.fillStyle = '#111417';
+    if (this.tierIndex === 0) {
+      // Sentry 9mm
+      ctx.fillRect(recoilOffset, -3, 20, 3);
+      ctx.fillRect(recoilOffset, 1, 20, 3);
+    } else if (this.tierIndex === 1) {
+      // Twin Autocannon (longer with muzzle brake)
+      ctx.fillRect(recoilOffset, -4, 26, 3.5);
+      ctx.fillRect(recoilOffset, 1.5, 26, 3.5);
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(recoilOffset + 24, -6, 4, 13);
+    } else if (this.tierIndex === 2) {
+      // Minigun bundle
+      ctx.fillStyle = '#1e272e';
+      ctx.fillRect(recoilOffset, -5, 28, 10);
+      ctx.fillStyle = '#d2dae2';
+      ctx.fillRect(recoilOffset + 26, -6, 3, 12);
+    } else {
+      // Plasma Cannon
+      ctx.fillStyle = '#0abde3';
+      ctx.fillRect(recoilOffset, -5, 30, 10);
+      ctx.fillStyle = '#48dbfb';
+      ctx.shadowColor = '#00d2d3';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(recoilOffset + 22, -3, 8, 6);
+    }
+
+    // Turret Pod Body / Dome
+    ctx.fillStyle = this.tierIndex >= 3 ? '#222f3e' : '#353b48';
+    ctx.beginPath();
+    ctx.arc(recoilOffset * 0.5, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1e272e';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Center pivot light
+    ctx.fillStyle = this.isReloading ? '#fbc531' : this.ammo === 0 ? '#e84118' : isManual ? '#00f3ff' : '#4cd137';
+    ctx.beginPath();
+    ctx.arc(recoilOffset * 0.5, 0, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Low Ammo warning blinking indicator
+    if (this.ammo <= 0) {
+      const blink = Math.floor(Date.now() / 300) % 2 === 0;
+      if (blink) {
+        ctx.fillStyle = '#ff3838';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("! RELOAD !", this.x, this.y - 18);
+      }
+    } else if (this.ammo < this.stats.maxAmmo * 0.35) {
+      const blink = Math.floor(Date.now() / 400) % 2 === 0;
+      if (blink) {
+        ctx.fillStyle = '#e58e26';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("LOW AMMO", this.x, this.y - 18);
+      }
+    }
+  }
+
+  drawLaserAimGuide(ctx) {
+    const barrelLen = this.tierIndex === 0 ? 20 : this.tierIndex === 1 ? 26 : 28;
+    const lx = this.x + Math.cos(this.angle) * barrelLen;
+    const ly = this.y + Math.sin(this.angle) * barrelLen;
+    const tx = this.target.x;
+    const ty = this.target.y - this.target.size * 0.6;
+
+    let laserColor = '#ff3333';
+    if (this.tierIndex === 1) laserColor = '#f39c12';
+    else if (this.tierIndex === 2) laserColor = '#00ff88';
+    else if (this.tierIndex === 3) laserColor = '#00f3ff';
+
+    const shimmer = 0.68 + Math.sin(Date.now() / 65) * 0.22;
+
+    ctx.save();
+    ctx.strokeStyle = laserColor;
+    ctx.lineWidth = 1.0;
+    ctx.globalAlpha = shimmer * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(lx, ly);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    // Reticle on target
+    ctx.fillStyle = laserColor;
+    ctx.globalAlpha = shimmer;
+    ctx.beginPath();
+    ctx.arc(tx, ty, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawManualLaserGuide(ctx) {
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    // Only draw guide for turret covering current mouse half
+    if ((this.side === 'left' && engine.mouseX > 700) || (this.side === 'right' && engine.mouseX < 580)) {
+      return;
+    }
+
+    const barrelLen = 25;
+    const lx = this.x + Math.cos(this.angle) * barrelLen;
+    const ly = this.y + Math.sin(this.angle) * barrelLen;
+    const mx = engine.mouseX;
+    const my = engine.mouseY;
+
+    ctx.save();
+    ctx.strokeStyle = '#00f3ff';
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.75;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(lx, ly);
+    ctx.lineTo(mx, my);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+window.Turret = Turret;
+
+
+// --- zombies.js ---
+// Zombie AI, Waves, and Spawning System
+class Zombie {
+  constructor(typeKey, side = 'left') {
+    this.typeKey = typeKey;
+    const base = CONFIG.ZOMBIE_TYPES[typeKey] || CONFIG.ZOMBIE_TYPES.shambler;
+    this.name = base.name;
+    this.maxHp = base.hp;
+    this.hp = base.hp;
+    this.speed = base.speed * (0.85 + Math.random() * 0.3);
+    this.damage = base.damage;
+    this.color = base.color;
+    this.size = base.size;
+    this.reward = base.reward;
+    this.side = side;
+    
+    // Spawn at outer forest edge
+    this.x = side === 'left' ? -15 - Math.random() * 40 : 1295 + Math.random() * 40;
+    this.y = CONFIG.SURFACE_Y;
+
+    this.walkCycle = Math.random() * Math.PI * 2;
+    this.attackCooldown = 0;
+    this.attackRate = 1.2;
+    this.range = base.range || 25;
+    this.spitCooldown = 2.0;
+
+    this.hitFlash = 0;
+    this.isDead = false;
+  }
+
+  takeDamage(amount) {
+    if (this.isDead) return true;
+    this.hp -= amount;
+    this.hitFlash = 0.08;
+    window.gameEngine.particles.spawnBlood(this.x, this.y - this.size * 0.6, 5);
+    window.soundSystem.playZombieHit();
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.isDead = true;
+      this.die();
+      return true;
+    }
+    return false;
+  }
+
+  die() {
+    const bloodColor = this.typeKey === 'spitter' ? '#337719' : '#6b1111';
+    window.gameEngine.particles.spawnBlood(this.x, this.y - this.size * 0.5, 14, bloodColor);
+
+    // Persistent ground blood decal
+    const decalRadius = this.typeKey === 'brute' ? 14 : this.size * 0.45;
+    const splatCount = this.typeKey === 'brute' ? 8 : 5;
+    window.gameEngine.particles.spawnBloodDecal(this.x, CONFIG.SURFACE_Y, bloodColor, decalRadius, splatCount);
+
+    if (this.typeKey === 'brute') {
+      window.soundSystem.playExplosion();
+      window.gameEngine.particles.spawnSparks(this.x, this.y - 15, 30, '#ff4422');
+    }
+
+    // Award resources
+    if (this.reward) {
+      if (this.reward.metal) {
+        window.gameEngine.resources.metal = Math.min(
+          CONFIG.RESOURCE_CAPS.metal,
+          window.gameEngine.resources.metal + this.reward.metal
+        );
+        window.gameEngine.particles.addFloatingText(`+${this.reward.metal} Metal`, this.x - 15, this.y - 30, '#9cdcfe');
+      }
+      if (this.reward.gunpowder) {
+        window.gameEngine.resources.gunpowder = Math.min(
+          CONFIG.RESOURCE_CAPS.gunpowder,
+          window.gameEngine.resources.gunpowder + this.reward.gunpowder
+        );
+        window.gameEngine.particles.addFloatingText(`+${this.reward.gunpowder} Powder`, this.x + 10, this.y - 45, '#e0aaff');
+      }
+    }
+
+    // Chance to drop bonus ammo crate
+    if (Math.random() < 0.25) {
+      const dropAmmo = 10 + Math.floor(Math.random() * 15);
+      window.gameEngine.resources.ammo = Math.min(
+        CONFIG.RESOURCE_CAPS.ammo,
+        window.gameEngine.resources.ammo + dropAmmo
+      );
+      window.gameEngine.particles.addFloatingText(`+${dropAmmo} AMMO!`, this.x, this.y - 55, '#f1c40f');
+    }
+
+    window.gameEngine.stats.zombiesKilled++;
+  }
+
+  update(dt) {
+    if (this.isDead) return;
+
+    if (this.hitFlash > 0) {
+      this.hitFlash -= dt;
+    }
+    if (this.attackCooldown > 0) {
+      this.attackCooldown -= dt;
+    }
+    this.walkCycle += dt * 5;
+
+    // Target is house center (x: 640) or flanking turrets (x: 430 or 850)
+    const targetX = this.side === 'left' ? 440 : 840;
+    const houseX = 640;
+
+    // Distance to turret
+    const distToTurret = Math.abs(this.x - targetX);
+    const distToHouse = Math.abs(this.x - houseX);
+
+    // Spitter logic: stops at range and spits acid
+    if (this.typeKey === 'spitter' && distToTurret <= this.range) {
+      this.spitCooldown -= dt;
+      if (this.spitCooldown <= 0) {
+        this.spitCooldown = 2.5;
+        const targetTurret = this.side === 'left' ? window.gameEngine.leftTurret : window.gameEngine.rightTurret;
+        if (window.soundSystem && window.soundSystem.playAcidSpit) {
+          window.soundSystem.playAcidSpit();
+        }
+        window.gameEngine.particles.spawnAcidSpit(this.x, this.y - this.size * 0.8, targetTurret.x, targetTurret.y, this.damage);
+      }
+      return;
+    }
+
+    // Check if reached turret or barricade
+    const inMeleeRange = distToTurret <= 18 || distToHouse <= 45;
+    if (inMeleeRange) {
+      if (this.attackCooldown <= 0) {
+        this.attackCooldown = this.attackRate;
+        const targetTurret = this.side === 'left' ? window.gameEngine.leftTurret : window.gameEngine.rightTurret;
+        
+        if (window.soundSystem && window.soundSystem.playZombieShriek) {
+          window.soundSystem.playZombieShriek();
+        }
+
+        // Attack turret if alive, otherwise attack house
+        if (targetTurret.health > 0 && distToTurret <= 25) {
+          targetTurret.health = Math.max(0, targetTurret.health - this.damage);
+          window.gameEngine.particles.spawnSparks(targetTurret.x, targetTurret.y, 8, '#ff5533');
+          window.gameEngine.particles.addFloatingText(`-${this.damage}`, targetTurret.x - 10, targetTurret.y - 20, '#ff3333');
+        } else {
+          window.gameEngine.damageHouse(this.damage);
+          window.gameEngine.particles.spawnBlood(this.x, this.y - 10, 4, '#552222');
+        }
+      }
+    } else {
+      // Move towards center
+      const dir = this.side === 'left' ? 1 : -1;
+      this.x += dir * this.speed * dt;
+    }
+  }
+
+  draw(ctx) {
+    if (this.isDead) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Direction flip
+    const faceLeft = this.side === 'right';
+    if (faceLeft) ctx.scale(-1, 1);
+
+    // Flash white when hit
+    if (this.hitFlash > 0) {
+      ctx.filter = 'brightness(2.6)';
+    }
+
+    const bob = Math.sin(this.walkCycle) * 2.5;
+    const legSwing = Math.cos(this.walkCycle) * (this.typeKey === 'runner' ? 7.5 : 5);
+
+    // Legs
+    ctx.strokeStyle = '#18191c';
+    ctx.lineWidth = this.size > 20 ? 4.5 : 2.8;
+    ctx.beginPath();
+    ctx.moveTo(-3, -this.size * 0.42);
+    ctx.lineTo(-4 + legSwing, 0);
+    ctx.moveTo(3, -this.size * 0.42);
+    ctx.lineTo(4 - legSwing, 0);
+    ctx.stroke();
+
+    // Specific Zombie variations
+    if (this.typeKey === 'brute') {
+      // Goliath Brute: Massive hulking silhouette with bone spikes
+      const torsoW = this.size * 0.95;
+      const torsoH = this.size * 0.7;
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-torsoW / 2, -this.size * 0.95 + bob, torsoW, torsoH);
+
+      // Muscular chest plates & scars
+      ctx.fillStyle = '#4f1a1a';
+      ctx.fillRect(-torsoW * 0.38, -this.size * 0.88 + bob, torsoW * 0.76, 5);
+      ctx.fillStyle = '#220808';
+      ctx.fillRect(-torsoW * 0.2, -this.size * 0.7 + bob, torsoW * 0.4, 8);
+
+      // Spiked shoulder pads
+      ctx.fillStyle = '#2a1a1a';
+      ctx.beginPath();
+      ctx.moveTo(-torsoW * 0.55, -this.size * 0.95 + bob);
+      ctx.lineTo(-torsoW * 0.75, -this.size * 1.15 + bob);
+      ctx.lineTo(-torsoW * 0.4, -this.size * 0.85 + bob);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(torsoW * 0.4, -this.size * 0.95 + bob);
+      ctx.lineTo(torsoW * 0.65, -this.size * 1.15 + bob);
+      ctx.lineTo(torsoW * 0.55, -this.size * 0.85 + bob);
+      ctx.fill();
+
+      // Heavy arms with spiked fists
+      ctx.strokeStyle = '#5a1d1d';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(-2, -this.size * 0.8 + bob);
+      ctx.lineTo(this.size * 0.85, -this.size * 0.6 + bob);
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = '#421616';
+      ctx.beginPath();
+      ctx.arc(this.size * 0.1, -this.size * 1.15 + bob, this.size * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing crimson dual eyes
+      ctx.fillStyle = '#ff1111';
+      ctx.shadowColor = '#ff1111';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(this.size * 0.25, -this.size * 1.2 + bob, 2.2, 0, Math.PI * 2);
+      ctx.arc(this.size * 0.38, -this.size * 1.22 + bob, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.typeKey === 'spitter') {
+      // Acid Spitter: Pulsing pustule sac and toxic maw
+      const torsoW = this.size * 0.7;
+      const torsoH = this.size * 0.58;
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-torsoW / 2, -this.size * 0.88 + bob, torsoW, torsoH);
+
+      // Pulsing toxic acid gland on back
+      const pulse = Math.sin(Date.now() / 150) * 2;
+      ctx.fillStyle = '#55ee11';
+      ctx.shadowColor = '#44dd00';
+      ctx.shadowBlur = 7;
+      ctx.beginPath();
+      ctx.arc(-torsoW * 0.3, -this.size * 0.82 + bob, 6 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Arm reaching forward
+      ctx.strokeStyle = '#4e6d23';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size * 0.75 + bob);
+      ctx.lineTo(this.size * 0.65, -this.size * 0.6 + bob);
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = '#6f9630';
+      ctx.beginPath();
+      ctx.arc(this.size * 0.05, -this.size * 1.08 + bob, this.size * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing green eye
+      ctx.fillStyle = '#39ff14';
+      ctx.shadowColor = '#39ff14';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(this.size * 0.2, -this.size * 1.12 + bob, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Acid dripping from jaw
+      ctx.fillStyle = '#55ff22';
+      ctx.fillRect(this.size * 0.24, -this.size * 0.95 + bob, 2.5, 4);
+    } else if (this.typeKey === 'armored') {
+      // Riot Armored: Ballistic helmet, visor, Kevlar vest
+      const torsoW = this.size * 0.78;
+      const torsoH = this.size * 0.62;
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(-torsoW / 2, -this.size * 0.92 + bob, torsoW, torsoH);
+
+      // Steel breastplate
+      ctx.fillStyle = '#636e72';
+      ctx.fillRect(-torsoW * 0.35, -this.size * 0.85 + bob, torsoW * 0.7, torsoH * 0.7);
+
+      // Arm reaching
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size * 0.75 + bob);
+      ctx.lineTo(this.size * 0.68, -this.size * 0.6 + bob);
+      ctx.stroke();
+
+      // Head with Riot Helmet
+      ctx.fillStyle = '#1e272e';
+      ctx.beginPath();
+      ctx.arc(0, -this.size * 1.15 + bob, this.size * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Visor slit with pale eye reflection
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(this.size * 0.05, -this.size * 1.22 + bob, 7, 3);
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(this.size * 0.22, -this.size * 1.2 + bob, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.typeKey === 'runner') {
+      // Feral Runner: Low forward sprint hunch
+      const torsoW = this.size * 0.62;
+      const torsoH = this.size * 0.52;
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-torsoW / 2, -this.size * 0.78 + bob, torsoW, torsoH);
+
+      // Dual frenzied claw arms
+      ctx.strokeStyle = '#5a1d1d';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size * 0.72 + bob);
+      ctx.lineTo(this.size * 0.8, -this.size * 0.75 + bob + legSwing);
+      ctx.moveTo(-2, -this.size * 0.72 + bob);
+      ctx.lineTo(this.size * 0.65, -this.size * 0.52 + bob - legSwing);
+      ctx.stroke();
+
+      // Head lunging forward
+      ctx.fillStyle = '#6d2121';
+      ctx.beginPath();
+      ctx.arc(this.size * 0.22, -this.size * 0.95 + bob, this.size * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Wild red eye
+      ctx.fillStyle = '#ff2222';
+      ctx.shadowColor = '#ff2222';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(this.size * 0.38, -this.size * 0.98 + bob, 2.0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Standard Walker Shambler
+      const torsoW = this.size * 0.68;
+      const torsoH = this.size * 0.58;
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-torsoW / 2, -this.size * 0.9 + bob, torsoW, torsoH);
+
+      // Tattered hem
+      ctx.fillStyle = '#223824';
+      ctx.fillRect(-torsoW / 2, -this.size * 0.42 + bob, torsoW, 3);
+
+      // Arm reaching forward
+      ctx.strokeStyle = '#39533c';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(0, -this.size * 0.75 + bob);
+      ctx.lineTo(this.size * 0.72, -this.size * 0.65 + bob);
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = '#4c6e51';
+      ctx.beginPath();
+      ctx.arc(0, -this.size * 1.1 + bob, this.size * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing red eye
+      ctx.fillStyle = '#ff2222';
+      ctx.beginPath();
+      ctx.arc(this.size * 0.16, -this.size * 1.14 + bob, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Health bar above zombie
+    if (this.hp < this.maxHp) {
+      const barW = this.size * 1.25;
+      const hpRatio = Math.max(0, this.hp / this.maxHp);
+      ctx.fillStyle = '#220505';
+      ctx.fillRect(-barW / 2, -this.size * 1.48 + bob, barW, 3);
+      ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
+      ctx.fillRect(-barW / 2, -this.size * 1.48 + bob, barW * hpRatio, 3);
+    }
+
+    ctx.restore();
+  }
+}
+
+// Wave and Horde Management
+class WaveManager {
+  constructor() {
+    this.currentWave = 0;
+    this.waveInterval = 100; // seconds between hordes
+    this.timer = 75; // Initial peaceful prep period (75s)
+    this.isHordeActive = false;
+    this.hordeZombiesRemaining = 0;
+    this.hordeSpawnQueue = [];
+    this.ambientSpawnTimer = 18; // Occasional straggler
+    this.sirenPlayed = false;
+  }
+
+  update(dt, zombiesList) {
+    // Ambient stragglers between hordes ("meski zombienya jarang yang datang, terkadang ada beberapa...")
+    if (!this.isHordeActive) {
+      this.timer -= dt;
+
+      // Warning siren 14s before wave
+      if (this.timer <= CONFIG.HORDE_WARNING_TIME && !this.sirenPlayed) {
+        this.sirenPlayed = true;
+        if (window.soundSystem) window.soundSystem.playSiren();
+        window.gameEngine.addNotification("⚠️ WARNING: INCOMING HORDE DETECTED ON RADAR!", "danger");
+      }
+
+      // Time to trigger horde!
+      if (this.timer <= 0) {
+        this.startHorde();
+      }
+
+      // Ambient wandering zombies (rare stragglers or small group)
+      this.ambientSpawnTimer -= dt;
+      if (this.ambientSpawnTimer <= 0) {
+        this.ambientSpawnTimer = CONFIG.AMBIENT_SPAWN_INTERVAL_MIN + Math.random() * (CONFIG.AMBIENT_SPAWN_INTERVAL_MAX - CONFIG.AMBIENT_SPAWN_INTERVAL_MIN);
+        
+        // 35% chance of a small roaming group (2-3 zombies) arriving together
+        const isGroup = Math.random() < 0.35;
+        const groupCount = isGroup ? 2 + Math.floor(Math.random() * 2) : 1;
+        const side = Math.random() > 0.5 ? 'left' : 'right';
+
+        for (let g = 0; g < groupCount; g++) {
+          const typeRoll = Math.random();
+          let type = 'shambler';
+          if (typeRoll < 0.35) type = 'runner';
+          else if (this.currentWave >= 2 && typeRoll > 0.85) type = 'armored';
+          
+          setTimeout(() => {
+            if (!this.isHordeActive) {
+              zombiesList.push(new Zombie(type, side));
+            }
+          }, g * 700);
+        }
+
+        if (isGroup && window.gameEngine) {
+          window.gameEngine.addNotification("📡 Radar: Small zombie cluster approaching perimeter...", "warning");
+        }
+      }
+    } else {
+      // Horde is active: spawn queued zombies with staggered intervals
+      if (this.hordeSpawnQueue.length > 0) {
+        this.hordeSpawnDelay = (this.hordeSpawnDelay || 0) - dt;
+        if (this.hordeSpawnDelay <= 0) {
+          this.hordeSpawnDelay = 0.45 + Math.random() * 0.8;
+          const nextZ = this.hordeSpawnQueue.shift();
+          zombiesList.push(new Zombie(nextZ.type, nextZ.side));
+        }
+      } else {
+        // Check if all zombies in wave are dead
+        const aliveZombies = zombiesList.filter(z => !z.isDead);
+        if (aliveZombies.length === 0) {
+          this.completeHorde();
+        }
+      }
+    }
+  }
+
+  startHorde() {
+    this.isHordeActive = true;
+    this.currentWave++;
+    this.sirenPlayed = false;
+    if (window.soundSystem) window.soundSystem.playSiren();
+    window.gameEngine.addNotification(`🚨 WAVE ${this.currentWave} ATTACKING! ALL DEFENSES READY!`, "danger");
+
+    // Build tactical wave composition
+    this.hordeSpawnQueue = [];
+    const count = 7 + this.currentWave * 4;
+
+    // Vanguard: armored tanks soak initial fire
+    if (this.currentWave >= 2) {
+      this.hordeSpawnQueue.push({ type: 'armored', side: 'left' });
+      this.hordeSpawnQueue.push({ type: 'armored', side: 'right' });
+    }
+
+    for (let i = 0; i < count; i++) {
+      const side = Math.random() > 0.5 ? 'left' : 'right';
+      let type = 'shambler';
+      const roll = Math.random();
+
+      if (this.currentWave >= 1 && roll < 0.40) {
+        type = 'runner'; // Fast flanking runners
+      } else if (this.currentWave >= 2 && roll > 0.80) {
+        type = 'armored';
+      } else if (this.currentWave >= 3 && roll > 0.88) {
+        type = 'spitter'; // Acid artillery
+      } else if (this.currentWave >= 4 && roll > 0.95) {
+        type = 'brute';
+      }
+
+      this.hordeSpawnQueue.push({ type, side });
+    }
+
+    // Guaranteed Brutes on every 3rd wave
+    if (this.currentWave % 3 === 0) {
+      this.hordeSpawnQueue.push({ type: 'brute', side: 'left' });
+      this.hordeSpawnQueue.push({ type: 'brute', side: 'right' });
+    }
+  }
+
+  completeHorde() {
+    this.isHordeActive = false;
+    this.timer = CONFIG.HORDE_INTERVAL || 95;
+    this.sirenPlayed = false;
+    if (window.soundSystem) window.soundSystem.playBeep(true);
+    window.gameEngine.addNotification(`🎉 WAVE ${this.currentWave} REPELLED! SURVIVORS SECURE!`, "success");
+
+    // Award all surviving bunker crew wave XP!
+    const engine = window.gameEngine;
+    for (const s of engine.survivors) {
+      if (!s.isDead) {
+        s.addXP(CONFIG.SURVIVOR_XP_WAVE_SURVIVED);
+      }
+    }
+
+    // Wave victory bonus resources
+    const bonusMetal = 35 + this.currentWave * 15;
+    const bonusAmmo = 50 + this.currentWave * 25;
+    const bonusPowder = 25 + this.currentWave * 12;
+    engine.resources.metal = Math.min(CONFIG.RESOURCE_CAPS.metal, engine.resources.metal + bonusMetal);
+    engine.resources.ammo = Math.min(CONFIG.RESOURCE_CAPS.ammo, engine.resources.ammo + bonusAmmo);
+    engine.resources.gunpowder = Math.min(CONFIG.RESOURCE_CAPS.gunpowder, engine.resources.gunpowder + bonusPowder);
+
+    engine.particles.addFloatingText(`+${bonusAmmo} BONUS AMMO!`, 640, 200, '#ffe57f');
+    engine.particles.addFloatingText(`+${bonusMetal} BONUS METAL!`, 640, 180, '#9cdcfe');
+  }
+}
+
+window.Zombie = Zombie;
+window.WaveManager = WaveManager;
+
+
+// --- bunker.js ---
+// Underground Bunker Architecture & Room Management
+class Room {
+  constructor(data) {
+    this.id = data.id;
+    this.floor = data.floor;
+    this.col = data.col;
+    this.name = data.name;
+    this.icon = data.icon;
+    this.desc = data.desc;
+    this.produces = data.produces;
+    this.baseRate = data.rate || 0;
+    this.cost = data.cost || null;
+    this.maxWorkers = data.maxWorkers || 2;
+    this.powerCost = data.powerCost || 2;
+    this.level = 1;
+    this.color = data.color;
+
+    // Calculate screen bounding box
+    const totalBunkerWidth = CONFIG.BUNKER_RIGHT - CONFIG.BUNKER_LEFT;
+    const shaftW = CONFIG.ELEVATOR_WIDTH;
+    const leftWidth = (CONFIG.ELEVATOR_X - shaftW / 2) - CONFIG.BUNKER_LEFT;
+    const rightWidth = CONFIG.BUNKER_RIGHT - (CONFIG.ELEVATOR_X + shaftW / 2);
+    
+    const roomW = (this.col < 2) ? (leftWidth / 2) : (rightWidth / 2);
+    let rx = 0;
+    if (this.col === 0) rx = CONFIG.BUNKER_LEFT;
+    else if (this.col === 1) rx = CONFIG.BUNKER_LEFT + roomW;
+    else if (this.col === 2) rx = CONFIG.ELEVATOR_X + shaftW / 2;
+    else if (this.col === 3) rx = CONFIG.ELEVATOR_X + shaftW / 2 + roomW;
+
+    const ry = CONFIG.BUNKER_TOP + (this.floor - 1) * CONFIG.FLOOR_HEIGHT;
+
+    this.x = rx;
+    this.y = ry;
+    this.width = roomW;
+    this.height = CONFIG.FLOOR_HEIGHT;
+
+    this.progress = 0; // Production progress cycle
+    this.hovered = false;
+  }
+
+  upgrade() {
+    const upgradeCost = this.level * 40;
+    if (window.gameEngine.resources.metal >= upgradeCost) {
+      window.gameEngine.resources.metal -= upgradeCost;
+      this.level++;
+      window.soundSystem.playBeep(true);
+      window.gameEngine.particles.spawnSparks(this.x + this.width / 2, this.y + this.height / 2, 20, '#55ee88');
+      window.gameEngine.particles.addFloatingText(`TIER ${this.level}!`, this.x + this.width / 2 - 25, this.y + 30, '#55ee88');
+      return true;
+    }
+    window.soundSystem.playBeep(false);
+    return false;
+  }
+
+  update(dt, workers, hasPower) {
+    if (!workers || workers.length === 0 || !hasPower || !this.produces) return;
+
+    // Production calculation
+    // Tech modifiers
+    let techMult = 1.0;
+    if (this.produces === 'ammo' && window.gameEngine.techTree.ammoOptimization) techMult = 1.4;
+    if (this.produces === 'food' && window.gameEngine.techTree.hydroBoost) techMult = 1.5;
+
+    // Calculate sum of worker efficiencies & award work XP
+    let workerEffSum = 0;
+    for (const w of workers) {
+      if (w.isDead) continue;
+      const eff = w.getEfficiency ? w.getEfficiency() : 1.0;
+      const specMult = (w.specialty === this.id) ? 1.25 : 1.0;
+      workerEffSum += eff * specMult;
+      if (w.addXP) {
+        const xpRate = CONFIG.SURVIVOR_XP_PER_SEC_WORKING * (w.specialty === this.id ? CONFIG.SURVIVOR_XP_SPECIALTY_MULT : 1.0);
+        w.addXP(xpRate * dt);
+      }
+    }
+
+    const effectiveRate = this.baseRate * (1 + (this.level - 1) * 0.4) * (workerEffSum * 0.8) * techMult;
+
+    // Check resource requirements
+    let canProduce = true;
+    if (this.cost) {
+      for (const [resKey, amountPerSec] of Object.entries(this.cost)) {
+        if (window.gameEngine.resources[resKey] < amountPerSec * dt) {
+          canProduce = false;
+          break;
+        }
+      }
+    }
+
+    if (canProduce) {
+      // Consume cost
+      if (this.cost) {
+        for (const [resKey, amountPerSec] of Object.entries(this.cost)) {
+          window.gameEngine.resources[resKey] = Math.max(0, window.gameEngine.resources[resKey] - amountPerSec * dt);
+        }
+      }
+
+      // Add produced resource
+      const gain = effectiveRate * dt;
+      const current = window.gameEngine.resources[this.produces];
+      const cap = CONFIG.RESOURCE_CAPS[this.produces] || 999;
+      window.gameEngine.resources[this.produces] = Math.min(cap, current + gain);
+    }
+  }
+
+  draw(ctx, isPowered, workers) {
+    // Room background
+    ctx.fillStyle = isPowered ? this.color : '#1f1e24';
+    ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+
+    // Wall grid patterns
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(this.x + 6, this.y + 6, this.width - 12, this.height - 12);
+
+    // Hover outline
+    if (this.hovered) {
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+    } else {
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
+
+    // Interior specific illustrations
+    this.drawRoomInterior(ctx, isPowered);
+
+    // Room Label & Tier Badge
+    ctx.fillStyle = isPowered ? '#ffffff' : '#7f8c8d';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${this.icon} ${this.name}`, this.x + 8, this.y + 18);
+
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText(`T${this.level}`, this.x + this.width - 24, this.y + 18);
+
+    // Worker count indicator
+    ctx.fillStyle = workers.length > 0 ? '#2ecc71' : '#e74c3c';
+    ctx.font = '10px monospace';
+    ctx.fillText(`👥 ${workers.length}/${this.maxWorkers}`, this.x + 8, this.y + this.height - 8);
+
+    // Power icon
+    if (!isPowered) {
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillText('⚡ NO POWER', this.x + this.width - 75, this.y + this.height - 8);
+    }
+  }
+
+  drawRoomInterior(ctx, isPowered) {
+    const cx = this.x + this.width / 2;
+    const by = this.y + this.height - 14;
+    const now = Date.now();
+
+    ctx.save();
+
+    // Fluorescent flicker during severe power dips (< 20 PWR)
+    const engine = window.gameEngine;
+    if (engine && engine.resources.power < 20 && isPowered) {
+      if (Math.random() < 0.12) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+      }
+    }
+
+    if (this.id === 'security') {
+      // Security & Radar: Pulsing holographic radar display with sweeping beam and blips
+      const monW = 54, monH = 34;
+      ctx.fillStyle = '#0f1419';
+      ctx.fillRect(cx - monW / 2, by - monH - 2, monW, monH);
+      ctx.strokeStyle = '#2d3748';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - monW / 2, by - monH - 2, monW, monH);
+
+      if (isPowered) {
+        const radarCenterX = cx;
+        const radarCenterY = by - monH / 2 - 2;
+        const radarR = 13;
+
+        // Concentric range rings
+        ctx.strokeStyle = 'rgba(0, 255, 120, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(radarCenterX, radarCenterY, 6, 0, Math.PI * 2);
+        ctx.arc(radarCenterX, radarCenterY, radarR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(radarCenterX - radarR, radarCenterY);
+        ctx.lineTo(radarCenterX + radarR, radarCenterY);
+        ctx.moveTo(radarCenterX, radarCenterY - radarR);
+        ctx.lineTo(radarCenterX, radarCenterY + radarR);
+        ctx.stroke();
+
+        // Rotating radar sweep arm
+        const sweepAngle = (now / 450) % (Math.PI * 2);
+        ctx.strokeStyle = '#00ff88';
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 5;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(radarCenterX, radarCenterY);
+        ctx.lineTo(radarCenterX + Math.cos(sweepAngle) * radarR, radarCenterY + Math.sin(sweepAngle) * radarR);
+        ctx.stroke();
+
+        // Trailing radar sweep wedge
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(radarCenterX, radarCenterY);
+        ctx.arc(radarCenterX, radarCenterY, radarR, sweepAngle - 0.55, sweepAngle);
+        ctx.closePath();
+        ctx.fill();
+
+        // Zombie threat blips (simulated or real from engine)
+        const blipBlink = Math.sin(now / 120) > 0;
+        if (blipBlink) {
+          ctx.fillStyle = engine && engine.waveManager.isHordeActive ? '#ff2222' : '#f1c40f';
+          ctx.shadowColor = ctx.fillStyle;
+          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.arc(radarCenterX - 7, radarCenterY - 4, 1.8, 0, Math.PI * 2);
+          ctx.arc(radarCenterX + 8, radarCenterY + 5, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Telemetry readout at bottom of monitor
+        ctx.fillStyle = '#00e5ff';
+        ctx.font = '7px monospace';
+        ctx.fillText('RADAR SCAN', cx - 20, by - monH + 7);
+      }
+    } else if (this.id === 'gunpowder_lab') {
+      // Chemical & Gunpowder Lab: Bubbling glass flasks, Bunsen burner, and distillation tubes
+      ctx.fillStyle = '#3a2512';
+      ctx.fillRect(cx - 32, by - 10, 64, 10); // Lab wooden bench
+
+      if (isPowered) {
+        // Bunsen Burner
+        ctx.fillStyle = '#718096';
+        ctx.fillRect(cx - 18, by - 16, 6, 6);
+        // Animated flickering blue flame
+        const flameH = 4 + Math.sin(now / 40) * 1.5;
+        ctx.fillStyle = '#00d2d3';
+        ctx.shadowColor = '#00d2d3';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, by - 16);
+        ctx.lineTo(cx - 15, by - 16 - flameH);
+        ctx.lineTo(cx - 12, by - 16);
+        ctx.closePath();
+        ctx.fill();
+
+        // Flask 1 (Erlenmeyer Flask with bubbling sulfur yellow liquid)
+        ctx.strokeStyle = '#a0aec0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 20, by - 18);
+        ctx.lineTo(cx - 22, by - 28);
+        ctx.lineTo(cx - 17, by - 36);
+        ctx.lineTo(cx - 13, by - 36);
+        ctx.lineTo(cx - 8, by - 28);
+        ctx.lineTo(cx - 10, by - 18);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Amber/Yellow bubbling liquid inside Flask 1
+        ctx.fillStyle = '#f39c12';
+        ctx.beginPath();
+        ctx.moveTo(cx - 20, by - 19);
+        ctx.lineTo(cx - 21, by - 26);
+        ctx.lineTo(cx - 9, by - 26);
+        ctx.lineTo(cx - 10, by - 19);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rising bubbles in Flask 1
+        const b1 = (now / 70) % 7;
+        const b2 = (now / 90 + 3) % 7;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - 16, by - 20 - b1, 1.2, 0, Math.PI * 2);
+        ctx.arc(cx - 13, by - 20 - b2, 1.0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Distillation glass tubing connecting to Flask 2
+        ctx.strokeStyle = 'rgba(200, 230, 255, 0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 15, by - 36);
+        ctx.lineTo(cx - 15, by - 40);
+        ctx.lineTo(cx + 10, by - 40);
+        ctx.lineTo(cx + 10, by - 30);
+        ctx.stroke();
+
+        // Flask 2 (Spherical Flask with violet liquid)
+        ctx.strokeStyle = '#a0aec0';
+        ctx.beginPath();
+        ctx.arc(cx + 10, by - 22, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#8e44ad';
+        ctx.beginPath();
+        ctx.arc(cx + 10, by - 22, 7, 0, Math.PI);
+        ctx.fill();
+
+        // Bubbles in Flask 2
+        const b3 = (now / 80) % 6;
+        ctx.fillStyle = '#dda0dd';
+        ctx.beginPath();
+        ctx.arc(cx + 8, by - 21 - b3, 1.2, 0, Math.PI * 2);
+        ctx.arc(cx + 12, by - 19 - ((b3 + 3) % 6), 1.0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mortar & Pestle with sulfur powder
+        ctx.fillStyle = '#4a5568';
+        ctx.beginPath();
+        ctx.arc(cx + 24, by - 14, 5, 0, Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(cx + 21, by - 14, 6, 2);
+      }
+    } else if (this.id === 'life_support') {
+      // Air & Life Support: Spinning industrial ventilation fans, cyan streamlines, and oxygen tanks
+      // Dual ventilation fan ducts
+      const fan1X = cx - 18;
+      const fan2X = cx + 18;
+      const fanY = by - 22;
+      const fanR = 12;
+
+      for (const fx of [fan1X, fan2X]) {
+        // Duct housing
+        ctx.fillStyle = '#1a202c';
+        ctx.beginPath();
+        ctx.arc(fx, fanY, fanR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#4a5568';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Spinning 4-blade fan
+        if (isPowered) {
+          const bladeAngle = (now / 45) % Math.PI;
+          ctx.save();
+          ctx.translate(fx, fanY);
+          ctx.rotate(bladeAngle);
+          ctx.fillStyle = '#718096';
+          // Blades
+          ctx.fillRect(-fanR + 2, -2, (fanR - 2) * 2, 4);
+          ctx.fillRect(-2, -fanR + 2, 4, (fanR - 2) * 2);
+          // Center hub
+          ctx.fillStyle = '#d4af37';
+          ctx.beginPath();
+          ctx.arc(0, 0, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // Flowing cyan air current streamlines
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+          ctx.lineWidth = 1;
+          const streamOff = (now / 60) % 8;
+          ctx.beginPath();
+          ctx.moveTo(fx - 4, fanY + fanR + 2 + streamOff);
+          ctx.lineTo(fx - 4, fanY + fanR + 8 + streamOff);
+          ctx.moveTo(fx + 4, fanY + fanR + 4 + streamOff);
+          ctx.lineTo(fx + 4, fanY + fanR + 10 + streamOff);
+          ctx.stroke();
+        } else {
+          // Stationary fan
+          ctx.fillStyle = '#4a5568';
+          ctx.fillRect(fx - fanR + 2, fanY - 1.5, (fanR - 2) * 2, 3);
+        }
+      }
+
+      // Oxygen Cylinder Tank on side
+      ctx.fillStyle = '#2d3748';
+      ctx.fillRect(cx - 35, by - 36, 10, 28);
+      ctx.beginPath();
+      ctx.arc(cx - 30, by - 36, 5, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#38a169'; // Green medical gas band
+      ctx.fillRect(cx - 35, by - 30, 10, 5);
+
+      // Pressure Gauge with live needle
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx - 30, by - 20, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = 1;
+      const needleAngle = isPowered ? Math.sin(now / 200) * 0.4 - Math.PI / 2 : 0;
+      ctx.beginPath();
+      ctx.moveTo(cx - 30, by - 20);
+      ctx.lineTo(cx - 30 + Math.cos(needleAngle) * 3, by - 20 + Math.sin(needleAngle) * 3);
+      ctx.stroke();
+
+      // Digital O2 LED display
+      if (isPowered) {
+        ctx.fillStyle = '#00ffcc';
+        ctx.font = '7px monospace';
+        ctx.fillText('O2 99%', cx + 7, by - 38);
+      }
+    } else if (this.id === 'armory') {
+      // Munitions Armory: Reciprocating bullet stamping press, brass cases, stenciled ammo boxes
+      ctx.fillStyle = '#3d2612';
+      ctx.fillRect(cx - 32, by - 14, 64, 14); // Sturdy workbench
+
+      // Reciprocating bullet loading press
+      const pressX = cx - 18;
+      const pressCycle = isPowered ? Math.sin(now / 160) * 3.5 : 0;
+      ctx.fillStyle = '#2d3748';
+      ctx.fillRect(pressX - 5, by - 36, 10, 22); // Press vertical frame
+      ctx.fillStyle = '#cbd5e0';
+      ctx.fillRect(pressX - 3, by - 24 + pressCycle, 6, 10); // Moving stamping ram
+
+      // Piles of brass cartridges on table
+      ctx.fillStyle = '#d4af37';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(pressX + 8 + i * 3, by - 19, 2.5, 5);
+        ctx.fillStyle = '#c0392b';
+        ctx.fillRect(pressX + 8 + i * 3, by - 21, 2.5, 2); // Bullet tips
+        ctx.fillStyle = '#d4af37';
+      }
+
+      // Stenciled military ammo crate
+      ctx.fillStyle = '#2d4726';
+      ctx.fillRect(cx + 6, by - 26, 22, 12);
+      ctx.strokeStyle = '#1e3019';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx + 6, by - 26, 22, 12);
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 6px monospace';
+      ctx.fillText('AMMO', cx + 8, by - 17);
+
+      // Hanging ammo belt
+      ctx.fillStyle = '#d4af37';
+      for (let i = 0; i < 6; i++) {
+        ctx.fillRect(cx - 30 + i * 4, by - 28, 2.5, 6);
+        ctx.fillStyle = '#4a5568';
+        ctx.fillRect(cx - 31 + i * 4, by - 26, 4, 2); // link
+        ctx.fillStyle = '#d4af37';
+      }
+    } else if (this.id === 'clinic') {
+      // Hospital bed & live ECG heart-rate monitor
+      ctx.fillStyle = '#edf2f7';
+      ctx.fillRect(cx - 26, by - 12, 52, 12); // Bed frame
+      ctx.fillStyle = '#3182ce';
+      ctx.fillRect(cx - 24, by - 16, 48, 4); // Mattress & sheet
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx - 24, by - 20, 10, 4); // Pillow
+
+      // Red cross on back wall
+      ctx.fillStyle = '#e53e3e';
+      ctx.fillRect(cx - 3, this.y + 26, 6, 18);
+      ctx.fillRect(cx - 9, this.y + 32, 18, 6);
+
+      // ECG Heartbeat monitor
+      if (isPowered) {
+        ctx.fillStyle = '#1a202c';
+        ctx.fillRect(cx + 10, by - 36, 22, 16);
+        ctx.strokeStyle = '#2d3748';
+        ctx.strokeRect(cx + 10, by - 36, 22, 16);
+
+        // Animated ECG waveform line
+        ctx.strokeStyle = '#48bb78';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const ecgX = (now / 40) % 20;
+        ctx.moveTo(cx + 11, by - 28);
+        ctx.lineTo(cx + 11 + ecgX * 0.4, by - 28);
+        ctx.lineTo(cx + 11 + ecgX * 0.5, by - 34); // peak
+        ctx.lineTo(cx + 11 + ecgX * 0.6, by - 24);
+        ctx.lineTo(cx + 11 + ecgX * 0.7, by - 28);
+        ctx.lineTo(cx + 31, by - 28);
+        ctx.stroke();
+
+        // IV Drip stand
+        ctx.strokeStyle = '#cbd5e0';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 28, by - 12);
+        ctx.lineTo(cx - 28, by - 38);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(cx - 31, by - 37, 6, 9);
+      }
+    } else if (this.id === 'generator') {
+      // Diesel Generator: Heavy turbine with spinning rotor, exhaust pipe, and rumbling shake
+      const shake = (isPowered && engine && engine.resources.fuel > 0) ? Math.sin(now / 25) * 0.8 : 0;
+      ctx.fillStyle = '#2d3748';
+      ctx.fillRect(cx - 32 + shake, by - 32, 64, 32);
+
+      // Flywheel / Turbine Rotor
+      const rotorAngle = isPowered ? (now / 35) % (Math.PI * 2) : 0;
+      ctx.fillStyle = '#1a202c';
+      ctx.beginPath();
+      ctx.arc(cx + shake, by - 16, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#4a5568';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Spinning rotor spokes
+      ctx.save();
+      ctx.translate(cx + shake, by - 16);
+      ctx.rotate(rotorAngle);
+      ctx.strokeStyle = isPowered ? '#ed8936' : '#718096';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-11, 0); ctx.lineTo(11, 0);
+      ctx.moveTo(0, -11); ctx.lineTo(0, 11);
+      ctx.stroke();
+      ctx.restore();
+
+      // Exhaust pipe
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(cx - 28, by - 38, 5, 8);
+
+      // Amber Fuel / RPM Level meter
+      ctx.fillStyle = '#111';
+      ctx.fillRect(cx + 17, by - 28, 10, 18);
+      const fuelH = engine ? Math.min(16, (engine.resources.fuel / CONFIG.RESOURCE_CAPS.fuel) * 16) : 10;
+      ctx.fillStyle = '#ecc94b';
+      ctx.fillRect(cx + 18, by - 11 - fuelH, 8, fuelH);
+    } else if (this.id === 'hydroponics') {
+      // Hydroponics: Violet grow lamps with ambient glow and vibrant foliage
+      if (isPowered) {
+        // Glowing purple overhead lamp
+        const glowGrad = ctx.createLinearGradient(cx, this.y + 18, cx, by);
+        glowGrad.addColorStop(0, 'rgba(180, 80, 240, 0.42)');
+        glowGrad.addColorStop(1, 'rgba(180, 80, 240, 0.04)');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(cx - 38, this.y + 18, 76, by - this.y - 18);
+      }
+
+      // Cultivation troughs (two tiers)
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(cx - 36, by - 8, 72, 8);
+      ctx.fillRect(cx - 36, by - 24, 72, 6);
+
+      // Growing plants / crops with leaves and tomatoes
+      ctx.fillStyle = '#38a169';
+      for (let i = 0; i < 6; i++) {
+        const px = cx - 30 + i * 12;
+        ctx.beginPath();
+        ctx.arc(px, by - 10, 5, 0, Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px, by - 26, 4, 0, Math.PI);
+        ctx.fill();
+
+        // Red fruit
+        ctx.fillStyle = '#e53e3e';
+        ctx.fillRect(px - 1, by - 11, 2.5, 2.5);
+        ctx.fillStyle = '#38a169';
+      }
+    } else if (this.id === 'workshop') {
+      // Fabrication Workshop: Lathe machine, tools, welding sparks
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(cx - 30, by - 18, 60, 18);
+      ctx.fillStyle = '#2d3748';
+      ctx.fillRect(cx - 24, by - 26, 16, 8); // Lathe headstock
+
+      // Rotating metal bar on lathe
+      if (isPowered) {
+        ctx.fillStyle = '#cbd5e0';
+        ctx.fillRect(cx - 8, by - 24, 28, 4);
+      }
+
+      // Red tool chest
+      ctx.fillStyle = '#c53030';
+      ctx.fillRect(cx + 16, by - 28, 12, 10);
+    } else if (this.id === 'research') {
+      // Tech Research Lab: Holographic schematic displays and terminal
+      ctx.fillStyle = '#1a202c';
+      ctx.fillRect(cx - 26, by - 28, 52, 26);
+      if (isPowered) {
+        ctx.strokeStyle = '#00d2d3';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - 24, by - 26, 48, 22);
+        // DNA / Circuit helix lines
+        ctx.strokeStyle = 'rgba(0, 210, 211, 0.7)';
+        ctx.beginPath();
+        for (let x = cx - 20; x <= cx + 20; x += 4) {
+          const yOff = Math.sin((x + now / 100) * 0.4) * 4;
+          ctx.lineTo(x, by - 15 + yOff);
+        }
+        ctx.stroke();
+      }
+    } else if (this.id === 'water_filter') {
+      // Water Filtration: Blue water tank with rising bubbles
+      ctx.fillStyle = '#2b6cb0';
+      ctx.fillRect(cx - 26, by - 30, 22, 30);
+      ctx.fillRect(cx + 4, by - 30, 22, 30);
+      if (isPowered) {
+        // Micro-bubbles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        const b = (now / 60) % 24;
+        ctx.beginPath();
+        ctx.arc(cx - 15, by - 5 - b, 1.2, 0, Math.PI * 2);
+        ctx.arc(cx + 15, by - 8 - ((b + 10) % 24), 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (this.id === 'bio_refinery') {
+      // Bio-Fuel Refinery: Organic biomass tank & distillation column
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(cx - 28, by - 30, 24, 30);
+      // Sludge view window
+      ctx.fillStyle = '#48bb78';
+      ctx.fillRect(cx - 22, by - 24, 12, 16);
+      // Fuel tube
+      ctx.fillStyle = '#ecc94b';
+      ctx.fillRect(cx + 4, by - 28, 20, 28);
+    } else if (this.id === 'mine') {
+      // Deep Excavation: Rough rock wall, timber supports, glowing lantern, ore cart
+      ctx.fillStyle = '#171923';
+      ctx.fillRect(cx - 35, by - 26, 70, 26);
+      // Timber beams
+      ctx.fillStyle = '#5c4033';
+      ctx.fillRect(cx - 32, by - 26, 5, 26);
+      ctx.fillRect(cx + 27, by - 26, 5, 26);
+      ctx.fillRect(cx - 32, by - 26, 64, 4);
+
+      // Glowing carbide lantern
+      if (isPowered) {
+        ctx.fillStyle = 'rgba(255, 180, 60, 0.35)';
+        ctx.beginPath();
+        ctx.arc(cx, by - 18, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffb830';
+        ctx.fillRect(cx - 2, by - 20, 4, 6);
+      }
+
+      // Ore cart with glittering metal chunks
+      ctx.fillStyle = '#4a5568';
+      ctx.fillRect(cx - 14, by - 12, 28, 12);
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(cx - 10, by - 16, 7, 5); // gold chunk
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(cx + 1, by - 17, 8, 6); // silver/metal chunk
+    } else if (this.id.startsWith('quarters')) {
+      // Bunk beds
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(cx - 30, by - 30, 60, 30);
+      ctx.fillStyle = '#bdc3c7';
+      ctx.fillRect(cx - 26, by - 14, 52, 6);
+      ctx.fillRect(cx - 26, by - 28, 52, 6);
+    }
+
+    ctx.restore();
+  }
+}
+
+// Elevator Shaft & Lift Car
+class Elevator {
+  constructor() {
+    this.x = CONFIG.ELEVATOR_X;
+    this.width = CONFIG.ELEVATOR_WIDTH;
+    this.cabinHeight = 44;
+    this.topY = CONFIG.SURFACE_Y - this.cabinHeight;
+    this.bottomY = CONFIG.BUNKER_TOP + CONFIG.FLOORS_COUNT * CONFIG.FLOOR_HEIGHT;
+    this.targetFloor = 0;
+    this.currentFloor = 0;
+    this.carY = this.getFloorCarY(0);
+    this.targetY = this.carY;
+    this.speed = 135; // px/s
+    this.passengers = [];
+  }
+
+  getFloorWalkY(floorIndex) {
+    if (floorIndex === 0) return CONFIG.SURFACE_Y;
+    return CONFIG.BUNKER_TOP + (floorIndex - 1) * CONFIG.FLOOR_HEIGHT + CONFIG.FLOOR_HEIGHT - 12;
+  }
+
+  getFloorCarY(floorIndex) {
+    return this.getFloorWalkY(floorIndex) - (this.cabinHeight - 4);
+  }
+
+  moveToFloor(floorIndex) {
+    this.targetFloor = Math.max(0, Math.min(CONFIG.FLOORS_COUNT, floorIndex));
+    this.targetY = this.getFloorCarY(this.targetFloor);
+  }
+
+  isAtFloor(floorIndex) {
+    return Math.abs(this.carY - this.getFloorCarY(floorIndex)) < 3.0;
+  }
+
+  board(survivor) {
+    if (!this.passengers.includes(survivor)) {
+      this.passengers.push(survivor);
+      survivor.inElevator = true;
+    }
+  }
+
+  exit(survivor) {
+    const idx = this.passengers.indexOf(survivor);
+    if (idx !== -1) {
+      this.passengers.splice(idx, 1);
+      survivor.inElevator = false;
+    }
+  }
+
+  update(dt) {
+    const diff = this.targetY - this.carY;
+    const step = this.speed * dt;
+    if (Math.abs(diff) <= Math.max(1.5, step)) {
+      const arrivedAtNewFloor = this.currentFloor !== this.targetFloor;
+      this.carY = this.targetY;
+      this.currentFloor = this.targetFloor;
+      if (arrivedAtNewFloor && window.soundSystem) window.soundSystem.playElevatorDing();
+    } else {
+      this.carY += Math.sign(diff) * step;
+    }
+
+    // Keep all passenger coordinates matched to elevator cabin
+    const cabinFloorY = this.carY + this.cabinHeight - 4;
+    for (let i = 0; i < this.passengers.length; i++) {
+      const p = this.passengers[i];
+      const offset = (i - (this.passengers.length - 1) / 2) * 10;
+      p.x = this.x + offset;
+      p.y = cabinFloorY;
+      p.targetX = p.x;
+      p.targetY = p.y;
+    }
+  }
+
+  draw(ctx) {
+    const shaftX = this.x - this.width / 2;
+    const totalHeight = this.bottomY - this.topY;
+
+    // Shaft background (dark concrete shaft)
+    ctx.fillStyle = '#181b20';
+    ctx.fillRect(shaftX, this.topY, this.width, totalHeight);
+
+    // Vertical steel guide rails
+    ctx.strokeStyle = '#4a5568';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(shaftX + 4, this.topY);
+    ctx.lineTo(shaftX + 4, this.bottomY);
+    ctx.moveTo(shaftX + this.width - 4, this.topY);
+    ctx.lineTo(shaftX + this.width - 4, this.bottomY);
+    ctx.stroke();
+
+    // Steel cables from top to elevator car
+    ctx.strokeStyle = '#718096';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.topY);
+    ctx.lineTo(this.x, this.carY);
+    ctx.stroke();
+
+    // Elevator Cabin / Car
+    const carX = shaftX + 3;
+    const carW = this.width - 6;
+    ctx.fillStyle = '#2d3748';
+    ctx.fillRect(carX, this.carY, carW, this.cabinHeight);
+
+    // Metal grille frame
+    ctx.strokeStyle = this.passengers.length > 0 ? '#48dbfb' : '#ecc94b';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(carX, this.carY, carW, this.cabinHeight);
+
+    // Interior cabin light
+    ctx.fillStyle = this.passengers.length > 0 ? '#00d2d3' : '#faf089';
+    ctx.beginPath();
+    ctx.arc(this.x, this.carY + 6, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Floor indicators in shaft
+    for (let f = 1; f <= CONFIG.FLOORS_COUNT; f++) {
+      const fy = CONFIG.BUNKER_TOP + (f - 1) * CONFIG.FLOOR_HEIGHT;
+      ctx.fillStyle = '#a0aec0';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(`F${f}`, shaftX + 8, fy + 14);
+    }
+  }
+}
+
+window.Room = Room;
+window.Elevator = Elevator;
+
+
+// --- survivors.js ---
+// Survivor Inhabitants Management System with Autonomous Needs, XP Progression, and Ammo Logistics
+class Survivor {
+  constructor(data) {
+    this.id = data.id;
+    this.name = data.name;
+    this.role = data.role;
+    this.skill = data.skill;
+    this.avatar = data.avatar;
+    this.specialty = data.specialty || 'armory';
+
+    this.hp = data.hp || 100;
+    this.maxHp = data.maxHp || 100;
+    this.hunger = data.hunger || 90;
+    this.thirst = data.thirst || 90;
+    this.fatigue = data.fatigue || 0;
+    this.morale = data.morale || 90;
+
+    // Progression & Skill Levels (1 to 5)
+    this.level = data.level || 1;
+    this.xp = data.xp || 0;
+    this.xpToNext = this.getXpNeeded(this.level);
+
+    this.assignedRoom = data.assignedRoom || 'armory';
+    this.status = 'working'; // 'working', 'seeking_food', 'seeking_water', 'resting', 'delivering_ammo'
+
+    // Visual & kinematic position
+    this.x = 640;
+    this.y = 350;
+    this.targetX = 640;
+    this.targetY = 350;
+    this.speed = 52; // px/s
+    this.walkCycle = Math.random() * 10;
+    this.isDead = false;
+
+    // Subsystem flags
+    this.inElevator = false;
+    this.carryingAmmo = false;
+    this.ammoDeliveryTask = null; // Logistics runner state machine
+    this.needState = null;        // 'seeking_food', 'seeking_water', 'resting'
+    this.needTimer = 0;
+
+    // Speech / status bubble
+    this.speechText = '';
+    this.speechTimer = 0;
+
+    this.initPosition();
+  }
+
+  getXpNeeded(lvl) {
+    const table = [100, 250, 450, 700, 1000];
+    return table[Math.min(table.length - 1, lvl - 1)] || 1000;
+  }
+
+  getEfficiency() {
+    // Level 1: 1.0x, Level 2: 1.25x, Level 3: 1.50x, Level 4: 1.75x, Level 5: 2.0x (+100%)
+    return 1.0 + (this.level - 1) * 0.25;
+  }
+
+  addXP(amount) {
+    if (this.isDead || this.level >= CONFIG.SURVIVOR_MAX_LEVEL) return;
+    this.xp += amount;
+    if (this.xp >= this.xpToNext) {
+      this.xp -= this.xpToNext;
+      this.level++;
+      this.xpToNext = this.getXpNeeded(this.level);
+      const title = CONFIG.SURVIVOR_LEVEL_TITLES[this.level - 1] || 'Veteran';
+      this.say(`⭐ PROMOTED TO LVL ${this.level}!`, 3.5);
+      if (window.gameEngine) {
+        window.gameEngine.particles.spawnSparks(this.x, this.y - 20, 25, '#ffd700');
+        window.gameEngine.particles.addFloatingText(`⭐ LEVEL ${this.level} ${title.toUpperCase()}!`, this.x - 30, this.y - 35, '#ffd700');
+        window.gameEngine.addNotification(`⭐ ${this.name} reached Level ${this.level} ${title} ${this.role}! (+${(this.level - 1) * 25}% efficiency)`, 'success');
+      }
+      if (window.soundSystem) window.soundSystem.playBeep(true);
+    }
+  }
+
+  initPosition() {
+    const room = window.gameEngine ? window.gameEngine.getRoom(this.assignedRoom) : null;
+    if (room) {
+      this.x = room.x + 20 + Math.random() * (room.width - 40);
+      this.y = room.y + room.height - 12;
+      this.targetX = this.x;
+      this.targetY = this.y;
+    }
+  }
+
+  say(text, duration = 3) {
+    this.speechText = text;
+    this.speechTimer = duration;
+  }
+
+  assignTo(roomId) {
+    this.assignedRoom = roomId;
+    const room = window.gameEngine.getRoom(roomId);
+    if (room) {
+      this.targetX = room.x + 20 + Math.random() * (room.width - 40);
+      this.targetY = room.y + room.height - 12;
+      this.say(`Assigned to ${room.name}!`, 2);
+    }
+  }
+
+  // Autonomous Ammo Logistics Runner Task
+  startAmmoDelivery(turret) {
+    if (this.ammoDeliveryTask || this.isDead) return false;
+    this.ammoDeliveryTask = {
+      turret: turret,
+      phase: 'to_armory',
+      targetFloor: 1
+    };
+    this.status = 'delivering_ammo';
+    this.needState = null;
+    this.say(`Turret low! Fetching ammo crate!`, 2.5);
+    return true;
+  }
+
+  abortAmmoDelivery() {
+    if (this.ammoDeliveryTask) {
+      if (this.inElevator && window.gameEngine && window.gameEngine.elevator) {
+        window.gameEngine.elevator.exit(this);
+      }
+      this.ammoDeliveryTask = null;
+      this.carryingAmmo = false;
+      this.status = 'working';
+      this.assignTo(this.assignedRoom);
+    }
+  }
+
+  update(dt) {
+    if (this.isDead) return;
+
+    if (this.speechTimer > 0) {
+      this.speechTimer -= dt;
+      if (this.speechTimer <= 0) this.speechText = '';
+    }
+
+    const engine = window.gameEngine;
+    const res = engine.resources;
+    const elevator = engine.elevator;
+
+    // 1. Natural Needs Depletion
+    this.thirst -= CONFIG.SURVIVOR_THIRST_RATE * dt;
+    this.hunger -= CONFIG.SURVIVOR_HUNGER_RATE * dt;
+
+    if (this.status === 'resting' || (this.assignedRoom && this.assignedRoom.startsWith('quarters'))) {
+      this.fatigue = Math.max(0, this.fatigue - dt * 12.0);
+      if (this.hp < this.maxHp) {
+        this.hp = Math.min(this.maxHp, this.hp + dt * 4.0);
+      }
+    } else {
+      this.fatigue = Math.min(100, this.fatigue + CONFIG.SURVIVOR_FATIGUE_RATE * dt);
+    }
+
+    // Starvation / Dehydration penalties
+    if (this.hunger <= 0 || this.thirst <= 0) {
+      this.hp -= dt * 2.5;
+      if (Math.random() < 0.03 && !this.speechText) {
+        this.say(this.thirst <= 0 ? "Need water desperately!" : "Starving!", 2);
+      }
+    }
+
+    // Death check
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.isDead = true;
+      if (this.inElevator) elevator.exit(this);
+      engine.addNotification(`💀 Survivor ${this.name} perished!`, 'danger');
+      engine.particles.spawnBlood(this.x, this.y, 18, '#881111');
+      return;
+    }
+
+    // 2. Ammo Delivery Task Execution (Highest priority autonomous job)
+    if (this.ammoDeliveryTask) {
+      this.updateAmmoDelivery(dt);
+      this.performMovement(dt);
+      return;
+    }
+
+    // 3. Autonomous Needs Routing
+    this.updateAutonomousNeeds(dt);
+
+    // 4. Movement towards target
+    this.performMovement(dt);
+  }
+
+  updateAmmoDelivery(dt) {
+    const engine = window.gameEngine;
+    const elevator = engine.elevator;
+    const task = this.ammoDeliveryTask;
+    const turret = task.turret;
+    const armory = engine.getRoom('armory');
+
+    if (!armory) {
+      this.abortAmmoDelivery();
+      return;
+    }
+
+    const armoryWalkY = elevator.getFloorWalkY(1);
+
+    if (task.phase === 'to_armory') {
+      // Walk to armory crafting bench
+      this.targetX = armory.x + armory.width / 2;
+      this.targetY = armoryWalkY;
+
+      // When arrived at armory
+      if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 12) {
+        if (engine.resources.ammo < 1) {
+          this.say("No ammo in armory stock to deliver!", 2);
+          this.abortAmmoDelivery();
+          return;
+        }
+        this.carryingAmmo = true;
+        task.phase = 'call_elevator_armory';
+        this.say("Ammo crate ready! Calling elevator!", 2);
+      }
+    } else if (task.phase === 'call_elevator_armory') {
+      // Walk to elevator shaft on Floor 1
+      this.targetX = CONFIG.ELEVATOR_X - 16;
+      this.targetY = armoryWalkY;
+
+      if (Math.abs(this.x - this.targetX) < 10) {
+        if (elevator.isAtFloor(1)) {
+          elevator.board(this);
+          elevator.moveToFloor(0); // Ride to surface
+          task.phase = 'riding_to_surface';
+          this.say("Taking lift to surface...", 2);
+        } else {
+          elevator.moveToFloor(1);
+        }
+      }
+    } else if (task.phase === 'riding_to_surface') {
+      // In elevator car moving up
+      if (elevator.isAtFloor(0)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = CONFIG.SURFACE_Y;
+        task.phase = 'running_to_turret';
+        this.say("Surface breached! Running to turret!", 2);
+      }
+    } else if (task.phase === 'running_to_turret') {
+      // Walk across surface to turret
+      const turretStopX = turret.side === 'left' ? turret.x + 24 : turret.x - 24;
+      this.targetX = turretStopX;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - turretStopX) < 14) {
+        // Restock turret!
+        const needed = turret.stats.maxAmmo - turret.ammo;
+        const available = Math.floor(engine.resources.ammo);
+        const deliverAmount = Math.min(needed, Math.min(CONFIG.AMMO_CRATE_DELIVERY_AMOUNT, available));
+
+        if (deliverAmount > 0) {
+          engine.resources.ammo -= deliverAmount;
+          turret.ammo += deliverAmount;
+          turret.isReloading = false;
+          engine.particles.spawnSparks(turret.x, turret.y, 22, '#55ffaa');
+          engine.particles.addFloatingText(`+${deliverAmount} AMMO RESTOCKED!`, turret.x - 25, turret.y - 30, '#55ffaa');
+          if (window.soundSystem) window.soundSystem.playReload();
+        }
+
+        this.carryingAmmo = false;
+        this.addXP(CONFIG.SURVIVOR_XP_AMMO_RUN);
+        task.phase = 'returning_to_cabin';
+        this.say("Restocked! Returning to bunker!", 2);
+      }
+    } else if (task.phase === 'returning_to_cabin') {
+      // Run back into surface cabin
+      this.targetX = CONFIG.ELEVATOR_X;
+      this.targetY = CONFIG.SURFACE_Y;
+
+      if (Math.abs(this.x - CONFIG.ELEVATOR_X) < 10) {
+        if (elevator.isAtFloor(0)) {
+          elevator.board(this);
+          const assignedRoom = engine.getRoom(this.assignedRoom);
+          const destFloor = assignedRoom ? assignedRoom.floor : 1;
+          elevator.moveToFloor(destFloor);
+          task.destFloor = destFloor;
+          task.phase = 'riding_to_bunker';
+          this.say("Descending back to bunker...", 2);
+        } else {
+          elevator.moveToFloor(0);
+        }
+      }
+    } else if (task.phase === 'riding_to_bunker') {
+      // In elevator car moving down
+      if (elevator.isAtFloor(task.destFloor)) {
+        elevator.exit(this);
+        this.x = CONFIG.ELEVATOR_X;
+        this.y = elevator.getFloorWalkY(task.destFloor);
+        this.ammoDeliveryTask = null;
+        this.status = 'working';
+        this.assignTo(this.assignedRoom);
+        this.say("Safe inside! Back to duty!", 2);
+      }
+    }
+  }
+
+  updateAutonomousNeeds(dt) {
+    const engine = window.gameEngine;
+    const res = engine.resources;
+    const elevator = engine.elevator;
+
+    // Trigger needs if thresholds crossed
+    if (!this.needState) {
+      if (this.thirst < CONFIG.THIRST_THRESHOLD && res.water >= 1) {
+        this.needState = 'seeking_water';
+        this.status = 'seeking_water';
+        this.needTimer = 0;
+        this.say("Thirsty... heading to filtration.", 2);
+      } else if (this.hunger < CONFIG.HUNGER_THRESHOLD && res.food >= 1) {
+        this.needState = 'seeking_food';
+        this.status = 'seeking_food';
+        this.needTimer = 0;
+        this.say("Hungry... heading to Mess Hall.", 2);
+      } else if (this.fatigue >= CONFIG.FATIGUE_REST_THRESHOLD) {
+        this.needState = 'resting';
+        this.status = 'resting';
+        this.needTimer = 0;
+        this.say("Exhausted... rotating to Quarters.", 2);
+      }
+    }
+
+    // Process active need state
+    if (this.needState === 'seeking_water') {
+      const waterRoom = engine.getRoom('water_filter');
+      if (waterRoom) {
+        const destY = elevator.getFloorWalkY(waterRoom.floor);
+        this.targetX = waterRoom.x + 30;
+        this.targetY = destY;
+
+        if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 14) {
+          this.needTimer += dt;
+          if (this.needTimer >= 1.5) {
+            res.water = Math.max(0, res.water - 1);
+            this.thirst = 100;
+            this.needState = null;
+            this.status = 'working';
+            this.needTimer = 0;
+            this.say("Refreshed with clean water!", 2);
+            this.assignTo(this.assignedRoom);
+          }
+        }
+      }
+    } else if (this.needState === 'seeking_food') {
+      const kitchen = engine.getRoom('kitchen');
+      if (kitchen) {
+        const destY = elevator.getFloorWalkY(kitchen.floor);
+        this.targetX = kitchen.x + 30;
+        this.targetY = destY;
+
+        if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 14) {
+          this.needTimer += dt;
+          if (this.needTimer >= 1.8) {
+            res.food = Math.max(0, res.food - 1);
+            this.hunger = 100;
+            this.needState = null;
+            this.status = 'working';
+            this.needTimer = 0;
+            this.say("Good hot meal!", 2);
+            this.assignTo(this.assignedRoom);
+          }
+        }
+      }
+    } else if (this.needState === 'resting') {
+      // Find quarters
+      const q = engine.getRoom('quarters_1') || engine.getRoom('quarters_2');
+      if (q) {
+        const destY = elevator.getFloorWalkY(q.floor);
+        this.targetX = q.x + 35;
+        this.targetY = destY;
+
+        if (Math.hypot(this.x - this.targetX, this.y - this.targetY) < 16) {
+          // Resting restores fatigue rapidly
+          if (this.fatigue <= CONFIG.FATIGUE_WAKE_THRESHOLD) {
+            this.needState = null;
+            this.status = 'working';
+            this.say("Fully rested and energized!", 2);
+            this.assignTo(this.assignedRoom);
+          }
+        }
+      }
+    } else {
+      // Normal idle pacing in assigned room
+      const room = engine.getRoom(this.assignedRoom);
+      if (room) {
+        if (Math.random() < 0.015) {
+          this.targetX = room.x + 18 + Math.random() * (room.width - 36);
+          this.targetY = room.y + room.height - 12;
+        }
+      }
+    }
+  }
+
+  performMovement(dt) {
+    if (this.inElevator) return;
+
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const dist = Math.hypot(dx, dy);
+    const step = this.speed * dt;
+
+    if (dist <= Math.max(1.5, step)) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    } else {
+      this.x += (dx / dist) * step;
+      this.y += (dy / dist) * step;
+      this.walkCycle += dt * 8;
+    }
+  }
+
+  draw(ctx) {
+    if (this.isDead) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    const bob = Math.sin(this.walkCycle) * 1.5;
+    const legSwing = Math.cos(this.walkCycle) * 3;
+
+    // Direction flip
+    const movingLeft = this.targetX < this.x - 2;
+    if (movingLeft) ctx.scale(-1, 1);
+
+    // Legs
+    ctx.strokeStyle = '#1e272e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-2, -6);
+    ctx.lineTo(-3 + legSwing, 0);
+    ctx.moveTo(2, -6);
+    ctx.lineTo(3 - legSwing, 0);
+    ctx.stroke();
+
+    // Body / Jumpsuit
+    ctx.fillStyle = this.specialty === 'armory' ? '#d35400' :
+                    this.specialty === 'clinic' ? '#27ae60' :
+                    this.specialty === 'workshop' ? '#f39c12' : '#2980b9';
+    ctx.fillRect(-4, -16 + bob, 8, 10);
+
+    // Head
+    ctx.fillStyle = '#ffdfba';
+    ctx.beginPath();
+    ctx.arc(0, -19 + bob, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hair / Cap
+    ctx.fillStyle = '#4a2810';
+    ctx.beginPath();
+    ctx.arc(0, -21 + bob, 4, Math.PI, 0);
+    ctx.fill();
+
+    // Carrying Ammo Crate in hands!
+    if (this.carryingAmmo) {
+      // Olive green heavy munitions box with yellow text
+      ctx.fillStyle = '#2d4726';
+      ctx.fillRect(4, -15 + bob, 11, 7);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(4, -15 + bob, 11, 7);
+      // Yellow ammo stencil
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 5px monospace';
+      ctx.fillText('AMMO', 5, -10 + bob);
+    }
+
+    // Health pip
+    const hpRatio = Math.max(0, this.hp / this.maxHp);
+    ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : '#e74c3c';
+    ctx.fillRect(-6, -26 + bob, 12 * hpRatio, 2);
+
+    // Name tag & Level Star
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'center';
+    const shortName = this.name.split(' ')[0];
+    ctx.fillText(`${shortName} [L${this.level}]`, 0, -29 + bob);
+
+    // Speech bubble if speaking
+    if (this.speechText) {
+      ctx.save();
+      if (movingLeft) ctx.scale(-1, 1); // unflip text
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+      ctx.font = 'bold 8px monospace';
+      const textW = ctx.measureText(this.speechText).width + 8;
+      ctx.fillRect(-textW / 2, -44 + bob, textW, 12);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-textW / 2, -44 + bob, textW, 12);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(this.speechText, 0, -35 + bob);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+}
+
+window.Survivor = Survivor;
+
+
+// --- engine.js ---
+// Core Game Engine & Surface/Bunker Canvas Renderer
+class GameEngine {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    
+    // Set internal resolution
+    this.canvas.width = CONFIG.CANVAS_WIDTH;
+    this.canvas.height = CONFIG.CANVAS_HEIGHT;
+
+    // Game state
+    this.timeScale = 1.0;
+    this.isPaused = false;
+    this.gameTime = 0; // seconds
+    this.dayTime = 8.0; // Starts at 08:00 AM (Day 1)
+    this.dayNumber = 1;
+
+    // House Barricade
+    this.houseHp = 500;
+    this.houseMaxHp = 500;
+
+    // Resources
+    this.resources = { ...CONFIG.INITIAL_RESOURCES };
+
+    // Tech Research Tree
+    this.techTree = {
+      autoConduit: false,       // Auto supplies ammo to turrets
+      heavyCaliber: false,      // +30% turret damage
+      ammoOptimization: false,  // +40% ammo output in Armory
+      hydroBoost: false,        // +50% food output
+      fortifiedWalls: false,    // Barricade max HP 1000
+      longRangeRadar: false     // Extended horde warning
+    };
+
+    // Subsystems
+    this.particles = new ParticleSystem();
+    this.elevator = new Elevator();
+    this.waveManager = new WaveManager();
+
+    // Turrets flanking the house (Based on the diagram)
+    this.leftTurret = new Turret('left', 435, CONFIG.SURFACE_Y - 10);
+    this.rightTurret = new Turret('right', 845, CONFIG.SURFACE_Y - 10);
+
+    // Atmospheric cabin searchlights mounted on surface house roof (track zombies & sweep forest)
+    this.searchlights = {
+      left: {
+        x: 588,
+        y: CONFIG.SURFACE_Y - 96,
+        angle: Math.PI * 0.85,
+        targetAngle: Math.PI * 0.85,
+        target: null,
+        sweepPhase: 0,
+        range: 520
+      },
+      right: {
+        x: 692,
+        y: CONFIG.SURFACE_Y - 96,
+        angle: Math.PI * 0.15,
+        targetAngle: Math.PI * 0.15,
+        target: null,
+        sweepPhase: Math.PI,
+        range: 520
+      }
+    };
+
+    // Initialize Bunker Rooms
+    this.rooms = CONFIG.ROOM_TEMPLATES.map(t => new Room(t));
+
+    // Initialize Survivors
+    this.survivors = CONFIG.INITIAL_SURVIVORS.map(s => new Survivor(s));
+
+    // Zombies
+    this.zombies = [];
+
+    // Notifications
+    this.notifications = [];
+
+    // Stats
+    this.stats = {
+      zombiesKilled: 0,
+      ammoCrafted: 0,
+      daysSurvived: 1
+    };
+
+    // Input state
+    this.mouseX = 0;
+    this.mouseY = 0;
+    this.selectedRoom = null;
+    this.selectedTurret = null;
+    this.manualAim = false;
+    this.isMouseDown = false;
+
+    // Bind event listeners
+    this.initInputs();
+
+    this.lastTimestamp = performance.now();
+    this.running = true;
+  }
+
+  getRoom(roomId) {
+    return this.rooms.find(r => r.id === roomId);
+  }
+
+  addNotification(text, type = 'info') {
+    this.notifications.unshift({ text, type, life: 4.5 });
+    if (this.notifications.length > 5) this.notifications.pop();
+  }
+
+  damageHouse(amount) {
+    this.houseHp = Math.max(0, this.houseHp - amount);
+    this.particles.spawnSparks(640, CONFIG.SURFACE_Y - 20, 10, '#ff4444');
+    if (this.houseHp <= 0) {
+      this.triggerGameOver("The surface house barricade was breached! Zombies overran the bunker.");
+    }
+  }
+
+  repairHouse() {
+    if (this.houseHp < this.houseMaxHp && this.resources.metal >= 15) {
+      this.resources.metal -= 15;
+      this.houseHp = Math.min(this.houseMaxHp, this.houseHp + 80);
+      window.soundSystem.playBeep(true);
+      this.particles.spawnSparks(640, CONFIG.SURFACE_Y - 25, 20, '#55ffaa');
+      this.particles.addFloatingText("+80 HP REPAIRED", 640, CONFIG.SURFACE_Y - 40, '#55ffaa');
+      return true;
+    }
+    return false;
+  }
+
+  triggerGameOver(reason) {
+    this.isPaused = true;
+    if (window.uiManager) {
+      window.uiManager.showGameOver(reason);
+    }
+  }
+
+  initInputs() {
+    this.canvas.addEventListener('mousemove', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+      this.mouseX = (e.clientX - rect.left) * scaleX;
+      this.mouseY = (e.clientY - rect.top) * scaleY;
+
+      // Check room hover
+      for (const room of this.rooms) {
+        room.hovered = (
+          this.mouseX >= room.x && this.mouseX <= room.x + room.width &&
+          this.mouseY >= room.y && this.mouseY <= room.y + room.height
+        );
+      }
+    });
+
+    this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        this.isMouseDown = true;
+        window.soundSystem.ensureContext();
+        if (this.manualAim && this.mouseY <= CONFIG.SURFACE_Y + 50) {
+          const activeTurret = this.mouseX < 640 ? this.leftTurret : this.rightTurret;
+          activeTurret.fireManual(this.mouseX, this.mouseY);
+        }
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        this.isMouseDown = false;
+      }
+    });
+
+    this.canvas.addEventListener('click', (e) => {
+      window.soundSystem.ensureContext();
+
+      // If manual aim is active and player clicked surface area, ignore menu clicks
+      if (this.manualAim && this.mouseY <= CONFIG.SURFACE_Y + 50) {
+        return;
+      }
+
+      // Check turret clicks
+      const distL = Math.hypot(this.mouseX - this.leftTurret.x, this.mouseY - this.leftTurret.y);
+      if (distL < 35) {
+        if (window.uiManager) window.uiManager.openTurretModal(this.leftTurret);
+        return;
+      }
+
+      const distR = Math.hypot(this.mouseX - this.rightTurret.x, this.mouseY - this.rightTurret.y);
+      if (distR < 35) {
+        if (window.uiManager) window.uiManager.openTurretModal(this.rightTurret);
+        return;
+      }
+
+      // Check room clicks
+      for (const room of this.rooms) {
+        if (
+          this.mouseX >= room.x && this.mouseX <= room.x + room.width &&
+          this.mouseY >= room.y && this.mouseY <= room.y + room.height
+        ) {
+          window.soundSystem.playBeep(true);
+          if (window.uiManager) window.uiManager.openRoomModal(room);
+          return;
+        }
+      }
+
+      // Check house click (repair)
+      if (
+        this.mouseX >= 580 && this.mouseX <= 700 &&
+        this.mouseY >= 150 && this.mouseY <= CONFIG.SURFACE_Y
+      ) {
+        this.repairHouse();
+      }
+    });
+  }
+
+  update(dt) {
+    if (this.isPaused) return;
+
+    // Apply timescale
+    const effectiveDt = dt * this.timeScale;
+    this.gameTime += effectiveDt;
+
+    // Update Day/Night clock (1 in-game day = 180 real seconds)
+    this.dayTime += (effectiveDt / 180) * 24;
+    if (this.dayTime >= 24) {
+      this.dayTime -= 24;
+      this.dayNumber++;
+      this.stats.daysSurvived = this.dayNumber;
+      this.addNotification(`☀️ Day ${this.dayNumber} has begun! Survivors held through the night.`, 'info');
+    }
+
+    // Update Power balance
+    let totalPowerConsumption = 0;
+    for (const room of this.rooms) {
+      totalPowerConsumption += room.powerCost;
+    }
+    // Turret power draw
+    totalPowerConsumption += 4;
+
+    // Generator room check
+    const genRoom = this.getRoom('generator');
+    const genWorkers = this.survivors.filter(s => s.assignedRoom === 'generator' && !s.isDead).length;
+    const hasFuel = this.resources.fuel > 0;
+    
+    if (hasFuel && genWorkers > 0) {
+      const fuelCost = 0.12 * effectiveDt;
+      this.resources.fuel = Math.max(0, this.resources.fuel - fuelCost);
+      this.resources.power = Math.min(CONFIG.RESOURCE_CAPS.power, this.resources.power + 20 * effectiveDt);
+    } else {
+      this.resources.power = Math.max(0, this.resources.power - totalPowerConsumption * 0.15 * effectiveDt);
+    }
+
+    const isPowered = this.resources.power > 5;
+
+    // Update Rooms production (passes full worker roster for level/XP calculation)
+    for (const room of this.rooms) {
+      const workers = this.survivors.filter(s => s.assignedRoom === room.id && !s.isDead);
+      room.update(effectiveDt, workers, isPowered);
+    }
+
+    // Automated Ammo Logistics Dispatch
+    this.checkAmmoLogistics();
+
+    // Continuous manual firing if holding mouse
+    if (this.manualAim && this.isMouseDown && this.mouseY <= CONFIG.SURFACE_Y + 50) {
+      const activeTurret = this.mouseX < 640 ? this.leftTurret : this.rightTurret;
+      activeTurret.fireManual(this.mouseX, this.mouseY);
+    }
+
+    // Update Survivors
+    for (const s of this.survivors) {
+      s.update(effectiveDt);
+    }
+
+    // Check game over if all survivors dead
+    const aliveCount = this.survivors.filter(s => !s.isDead).length;
+    if (aliveCount === 0) {
+      this.triggerGameOver("All bunker inhabitants have died! The bunker has fallen silent.");
+    }
+
+    // Update Elevator
+    this.elevator.update(effectiveDt);
+
+    // Update Turrets
+    this.leftTurret.update(effectiveDt, this.zombies);
+    this.rightTurret.update(effectiveDt, this.zombies);
+
+    // Update Zombies & Wave Manager
+    this.waveManager.update(effectiveDt, this.zombies);
+    for (let i = this.zombies.length - 1; i >= 0; i--) {
+      const z = this.zombies[i];
+      z.update(effectiveDt);
+      if (z.isDead) {
+        this.zombies.splice(i, 1);
+      }
+    }
+
+    // Update Cabin Searchlights
+    this.updateSearchlights(effectiveDt);
+
+    // Update FX
+    this.particles.update(effectiveDt, this.dayTime);
+
+    // Occasional chimney smoke puff
+    if (Math.random() < 0.14 * effectiveDt * 25) {
+      this.particles.spawnSmokePuff(678, CONFIG.SURFACE_Y - 116, 5 + Math.random() * 3);
+    }
+
+    // Atmospheric night wind breeze audio
+    const isNight = this.dayTime < 6.0 || this.dayTime >= 20.0;
+    if (isNight && Math.random() < 0.006 * effectiveDt * 25) {
+      if (window.soundSystem && window.soundSystem.playWindBreeze) {
+        window.soundSystem.playWindBreeze();
+      }
+    }
+
+    // Update notifications
+    for (let i = this.notifications.length - 1; i >= 0; i--) {
+      this.notifications[i].life -= effectiveDt;
+      if (this.notifications[i].life <= 0) {
+        this.notifications.splice(i, 1);
+      }
+    }
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 1. Draw Surface Atmosphere (Sky, Sun/Moon, Stars)
+    this.drawSky(ctx);
+
+    // 2. Draw Surface Deep Forest with Parallax Depth (Left and Right)
+    this.drawForest(ctx);
+
+    // 3. Draw Ground Soil & Subterranean Strata
+    this.drawSubterraneanEarth(ctx);
+
+    // 4. Draw Persistent Blood Decals on Ground
+    this.particles.drawDecals(ctx);
+
+    // 5. Draw Surface House Cabin (Pitched roof, window, door, chimney)
+    this.drawHouse(ctx);
+
+    // 6. Draw Cabin Roof Searchlights (illuminating forest & tracking zombies)
+    this.drawSearchlights(ctx);
+
+    // 7. Draw Ground Fog / Mist Drift across surface
+    this.particles.drawFog(ctx, this.dayTime);
+
+    // 8. Draw Elevator Shaft & Lift Car
+    this.elevator.draw(ctx);
+
+    // 9. Draw Bunker Rooms Grid
+    const isPowered = this.resources.power > 5;
+    for (const room of this.rooms) {
+      const workers = this.survivors.filter(s => s.assignedRoom === room.id && !s.isDead);
+      room.draw(ctx, isPowered, workers);
+    }
+
+    // 10. Draw Survivors
+    for (const s of this.survivors) {
+      s.draw(ctx);
+    }
+
+    // 11. Draw Turrets (Left & Right flanking house with laser aim guides)
+    this.leftTurret.draw(ctx);
+    this.rightTurret.draw(ctx);
+
+    // 12. Draw Zombies
+    for (const z of this.zombies) {
+      z.draw(ctx);
+    }
+
+    // 13. Draw Particle Effects, Tracers, Spits
+    this.particles.draw(ctx);
+
+    // 14. Red Emergency Flashing Alarm during Horde
+    if (this.waveManager.isHordeActive) {
+      const pulse = (Math.sin(Date.now() / 150) + 1) * 0.5;
+      ctx.fillStyle = `rgba(231, 76, 60, ${0.14 * pulse})`;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    // 15. Draw Tactical Crosshair if manual aim mode is active
+    if (this.manualAim) {
+      this.drawCrosshair(ctx);
+    }
+
+    // 16. Draw On-Screen Notifications
+    this.drawNotifications(ctx);
+  }
+
+  drawSky(ctx) {
+    const hour = this.dayTime;
+    let topColor, botColor;
+
+    if (hour >= 6 && hour < 11) {
+      // Dawn / Sunrise
+      topColor = '#2c3e50';
+      botColor = '#e67e22';
+    } else if (hour >= 11 && hour < 17) {
+      // Midday Sky
+      topColor = '#2980b9';
+      botColor = '#85c1e9';
+    } else if (hour >= 17 && hour < 20) {
+      // Sunset
+      topColor = '#2c3e50';
+      botColor = '#d35400';
+    } else {
+      // Night Sky
+      topColor = '#0b0e14';
+      botColor = '#1a252f';
+    }
+
+    const grad = ctx.createLinearGradient(0, 0, 0, CONFIG.SURFACE_Y);
+    grad.addColorStop(0, topColor);
+    grad.addColorStop(1, botColor);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.canvas.width, CONFIG.SURFACE_Y);
+
+    // Stars at night
+    if (hour < 6 || hour >= 20) {
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 30; i++) {
+        const sx = (i * 47) % 1280;
+        const sy = (i * 29) % (CONFIG.SURFACE_Y - 40);
+        ctx.fillRect(sx, sy, 1.5, 1.5);
+      }
+    }
+  }
+
+  drawForest(ctx) {
+    // 1. Distant atmospheric silhouette pines (parallax layer 1)
+    this.drawDistantPines(ctx, 0, 420, 22);
+    this.drawDistantPines(ctx, 860, 1280, 22);
+
+    // 2. Foreground detailed pines with wind sway (parallax layer 2)
+    this.drawTreeGroup(ctx, 0, 390, 16);
+    this.drawTreeGroup(ctx, 890, 1280, 16);
+  }
+
+  drawDistantPines(ctx, startX, endX, count) {
+    const step = (endX - startX) / count;
+    const isNight = this.dayTime < 6 || this.dayTime >= 20;
+    ctx.fillStyle = isNight ? '#0b161f' : '#1b3834';
+
+    for (let i = 0; i < count; i++) {
+      const tx = startX + i * step + Math.sin(i * 4) * 6;
+      const height = 75 + (i % 6) * 12;
+      const ty = CONFIG.SURFACE_Y - 2;
+
+      ctx.beginPath();
+      ctx.moveTo(tx, ty - height);
+      ctx.lineTo(tx + 18, ty);
+      ctx.lineTo(tx - 18, ty);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  drawTreeGroup(ctx, startX, endX, count) {
+    const step = (endX - startX) / count;
+    const windSway = Math.sin(this.gameTime * 1.5) * 2.2;
+    for (let i = 0; i < count; i++) {
+      const tx = startX + i * step + Math.sin(i * 3) * 8;
+      const height = 110 + (i % 5) * 16;
+      const ty = CONFIG.SURFACE_Y;
+
+      // Trunk
+      ctx.fillStyle = '#2c1e14';
+      ctx.fillRect(tx - 3, ty - height * 0.35, 6, height * 0.35);
+
+      // Pine foliage layers with wind sway
+      const colors = ['#1a331c', '#224726', '#142916'];
+      for (let layer = 0; layer < 3; layer++) {
+        const layerY = ty - height * 0.35 - layer * (height * 0.22);
+        const w = 38 - layer * 9;
+        const sway = windSway * (layer + 1) * 0.6;
+        ctx.fillStyle = colors[layer % colors.length];
+        ctx.beginPath();
+        ctx.moveTo(tx + sway, layerY - 30);
+        ctx.lineTo(tx + w, layerY);
+        ctx.lineTo(tx - w, layerY);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  drawSubterraneanEarth(ctx) {
+    // Ground line & grass
+    ctx.fillStyle = '#27ae60';
+    ctx.fillRect(0, CONFIG.SURFACE_Y - 4, this.canvas.width, 6);
+
+    // Deep rocky soil
+    ctx.fillStyle = '#2b2118';
+    ctx.fillRect(0, CONFIG.SURFACE_Y + 2, this.canvas.width, this.canvas.height - CONFIG.SURFACE_Y);
+
+    // Strata layers & stones
+    ctx.fillStyle = '#3a2e22';
+    for (let y = CONFIG.SURFACE_Y + 20; y < this.canvas.height; y += 45) {
+      ctx.fillRect(0, y, this.canvas.width, 10);
+    }
+
+    // Outer bunker heavy reinforced concrete foundation
+    ctx.strokeStyle = '#1e272e';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(
+      CONFIG.BUNKER_LEFT - 6,
+      CONFIG.BUNKER_TOP - 6,
+      (CONFIG.BUNKER_RIGHT - CONFIG.BUNKER_LEFT) + 12,
+      CONFIG.FLOORS_COUNT * CONFIG.FLOOR_HEIGHT + 12
+    );
+
+    // Hazard yellow/black caution stripes above bunker top
+    const hatchX = CONFIG.BUNKER_LEFT;
+    const hatchW = CONFIG.BUNKER_RIGHT - CONFIG.BUNKER_LEFT;
+    ctx.fillStyle = '#d4ac0d';
+    ctx.fillRect(hatchX, CONFIG.BUNKER_TOP - 12, hatchW, 6);
+  }
+
+  drawHouse(ctx) {
+    const hx = 575;
+    const hy = CONFIG.SURFACE_Y - 80;
+    const hw = 130;
+    const hh = 80;
+
+    // Wooden Cabin Walls
+    ctx.fillStyle = '#4a3728';
+    ctx.fillRect(hx, hy, hw, hh);
+
+    // Wood plank horizontal lines
+    ctx.strokeStyle = '#322316';
+    ctx.lineWidth = 1.5;
+    for (let p = hy + 12; p < hy + hh; p += 12) {
+      ctx.beginPath();
+      ctx.moveTo(hx, p);
+      ctx.lineTo(hx + hw, p);
+      ctx.stroke();
+    }
+
+    // Pitched Roof (as drawn in untitled (3).png)
+    ctx.fillStyle = '#5c2c16';
+    ctx.beginPath();
+    ctx.moveTo(hx - 12, hy);
+    ctx.lineTo(hx + hw / 2, hy - 45);
+    ctx.lineTo(hx + hw + 12, hy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#2d150b';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Chimney with gentle smoke
+    ctx.fillStyle = '#7f8c8d';
+    ctx.fillRect(hx + hw - 32, hy - 40, 14, 25);
+    // Smoke puff
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.35)';
+    const smokeY = hy - 45 - ((Date.now() / 40) % 30);
+    ctx.beginPath();
+    ctx.arc(hx + hw - 25, smokeY, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Roof Searchlight Mounting Platforms on Pitched Roof
+    ctx.fillStyle = '#2d3436';
+    ctx.fillRect(hx + 10, hy - 18, 8, 6);
+    ctx.fillRect(hx + hw - 18, hy - 18, 8, 6);
+
+    // Illuminated Window with warm radial bloom at night
+    if (this.dayTime < 6.5 || this.dayTime >= 18.0) {
+      const winGlow = ctx.createRadialGradient(hx + 29, hy + 33, 4, hx + 29, hy + 33, 48);
+      winGlow.addColorStop(0, 'rgba(243, 156, 18, 0.52)');
+      winGlow.addColorStop(1, 'rgba(243, 156, 18, 0)');
+      ctx.fillStyle = winGlow;
+      ctx.beginPath();
+      ctx.arc(hx + 29, hy + 33, 48, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#f39c12';
+    ctx.fillRect(hx + 18, hy + 22, 22, 22);
+    ctx.strokeStyle = '#2c1e14';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(hx + 18, hy + 22, 22, 22);
+    ctx.beginPath();
+    ctx.moveTo(hx + 29, hy + 22);
+    ctx.lineTo(hx + 29, hy + 44);
+    ctx.moveTo(hx + 18, hy + 33);
+    ctx.lineTo(hx + 40, hy + 33);
+    ctx.stroke();
+
+    // Fortified Door / Barricade (entrance to bunker hatch)
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(hx + 56, hy + 28, 28, 52);
+    ctx.strokeStyle = '#7f8c8d';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(hx + 56, hy + 28, 28, 52);
+
+    // Barricade wooden cross planks
+    ctx.strokeStyle = '#e67e22';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(hx + 57, hy + 35);
+    ctx.lineTo(hx + 83, hy + 75);
+    ctx.moveTo(hx + 83, hy + 35);
+    ctx.lineTo(hx + 57, hy + 75);
+    ctx.stroke();
+
+    // House Barricade Health Bar
+    const hpRatio = Math.max(0, this.houseHp / this.houseMaxHp);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(hx + 15, hy - 58, 100, 6);
+    ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f39c12' : '#e74c3c';
+    ctx.fillRect(hx + 15, hy - 58, 100 * hpRatio, 6);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`CABIN: ${Math.round(this.houseHp)}/${this.houseMaxHp} HP`, hx + 65, hy - 63);
+  }
+
+  // Update roof searchlights tracking approaching zombies or sweeping dark forest
+  updateSearchlights(dt) {
+    const isNightOrDusk = this.dayTime < 6.5 || this.dayTime >= 18.0 || this.waveManager.isHordeActive;
+    if (!isNightOrDusk) return;
+
+    this.updateSingleSearchlight(this.searchlights.left, 'left', dt);
+    this.updateSingleSearchlight(this.searchlights.right, 'right', dt);
+  }
+
+  updateSingleSearchlight(light, side, dt) {
+    let closestZombie = null;
+    let minDist = light.range;
+
+    for (const z of this.zombies) {
+      if (z.hp <= 0) continue;
+      if (side === 'left' && z.x > 620) continue;
+      if (side === 'right' && z.x < 660) continue;
+
+      const dist = Math.hypot(z.x - light.x, z.y - light.y);
+      if (dist < minDist) {
+        minDist = dist;
+        closestZombie = z;
+      }
+    }
+
+    light.target = closestZombie;
+
+    if (closestZombie) {
+      // Actively track target zombie
+      const targetY = closestZombie.y - closestZombie.size * 0.6;
+      light.targetAngle = Math.atan2(targetY - light.y, closestZombie.x - light.x);
+      let diff = light.targetAngle - light.angle;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      light.angle += diff * Math.min(1, dt * 5.0);
+    } else {
+      // Idle rhythmic sweep of dark forest
+      light.sweepPhase += dt * 0.75;
+      if (side === 'left') {
+        const centerAngle = Math.PI * 0.85;
+        light.angle = centerAngle + Math.sin(light.sweepPhase) * 0.26;
+      } else {
+        const centerAngle = Math.PI * 0.15;
+        light.angle = centerAngle + Math.sin(light.sweepPhase) * 0.26;
+      }
+    }
+  }
+
+  // Render atmospheric cabin searchlights and illuminated ground spotlights
+  drawSearchlights(ctx) {
+    const isNightOrDusk = this.dayTime < 6.5 || this.dayTime >= 18.0 || this.waveManager.isHordeActive;
+    if (!isNightOrDusk) return;
+
+    for (const side of ['left', 'right']) {
+      const light = this.searchlights[side];
+
+      ctx.save();
+      const beamDist = light.range;
+      const spread = 0.26; // half angle in radians
+
+      const p1X = light.x + Math.cos(light.angle - spread) * beamDist;
+      const p1Y = light.y + Math.sin(light.angle - spread) * beamDist;
+      const p2X = light.x + Math.cos(light.angle + spread) * beamDist;
+      const p2Y = light.y + Math.sin(light.angle + spread) * beamDist;
+      const centerEndPx = light.x + Math.cos(light.angle) * beamDist;
+      const centerEndPy = light.y + Math.sin(light.angle) * beamDist;
+
+      // Volumetric light cone
+      const grad = ctx.createRadialGradient(light.x, light.y, 4, centerEndPx, centerEndPy, beamDist);
+      grad.addColorStop(0, 'rgba(255, 250, 210, 0.45)');
+      grad.addColorStop(0.2, 'rgba(255, 240, 180, 0.24)');
+      grad.addColorStop(0.7, 'rgba(240, 230, 170, 0.08)');
+      grad.addColorStop(1, 'rgba(220, 210, 150, 0)');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(light.x, light.y);
+      ctx.lineTo(p1X, p1Y);
+      ctx.lineTo(p2X, p2Y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ground spotlight puddle
+      if (Math.sin(light.angle) > 0.08) {
+        const groundDist = (CONFIG.SURFACE_Y - light.y) / Math.sin(light.angle);
+        if (groundDist > 0 && groundDist < beamDist + 50) {
+          const spotX = light.x + Math.cos(light.angle) * groundDist;
+          ctx.fillStyle = 'rgba(255, 242, 185, 0.22)';
+          ctx.beginPath();
+          ctx.ellipse(spotX, CONFIG.SURFACE_Y, 44, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Highlight targeted zombie when spotlight tracks them
+      if (light.target && light.target.hp > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 210, 0.25)';
+        ctx.shadowColor = '#fff6aa';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(light.target.x, light.target.y - light.target.size * 0.6, light.target.size * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Hardware base pedestal and swivel fixture
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(light.x - 3, light.y - 2, 6, 8);
+
+      ctx.save();
+      ctx.translate(light.x, light.y);
+      ctx.rotate(light.angle);
+
+      // Metal reflector housing
+      ctx.fillStyle = '#1e272e';
+      ctx.beginPath();
+      ctx.arc(0, 0, 7, -Math.PI / 2, Math.PI / 2, true);
+      ctx.fill();
+      ctx.strokeStyle = '#636e72';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Intense bulb & lens glare
+      ctx.fillStyle = '#fff9d2';
+      ctx.shadowColor = '#ffeaa7';
+      ctx.shadowBlur = 14;
+      ctx.fillRect(1, -5, 3.5, 10);
+
+      ctx.restore();
+      ctx.restore();
+    }
+  }
+
+  drawNotifications(ctx) {
+    let ny = 20;
+    for (const notif of this.notifications) {
+      const alpha = Math.min(1, notif.life);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 12px "Courier New", monospace';
+      const textW = ctx.measureText(notif.text).width;
+      
+      // Banner box
+      ctx.fillStyle = notif.type === 'danger' ? 'rgba(192, 57, 43, 0.9)' :
+                      notif.type === 'success' ? 'rgba(39, 174, 96, 0.9)' : 'rgba(41, 128, 185, 0.9)';
+      ctx.fillRect(640 - textW / 2 - 12, ny, textW + 24, 22);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(640 - textW / 2 - 12, ny, textW + 24, 22);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(notif.text, 640, ny + 15);
+      ctx.restore();
+
+      ny += 28;
+    }
+  }
+
+  // Autonomous Ammo Logistics Runner Task Trigger
+  checkAmmoLogistics() {
+    if (this.resources.ammo < 1) return;
+
+    const threshold = CONFIG.AMMO_DELIVERY_THRESHOLD || 0.35;
+    const leftLow = this.leftTurret.ammo < (this.leftTurret.stats.maxAmmo * threshold);
+    const rightLow = this.rightTurret.ammo < (this.rightTurret.stats.maxAmmo * threshold);
+
+    if (!leftLow && !rightLow) return;
+
+    // Check if a runner is already handling this turret
+    const activeTasks = this.survivors.filter(s => s.ammoDeliveryTask);
+    const deliveringLeft = activeTasks.some(s => s.ammoDeliveryTask.turret === this.leftTurret);
+    const deliveringRight = activeTasks.some(s => s.ammoDeliveryTask.turret === this.rightTurret);
+
+    let needyTurret = null;
+    if (leftLow && !deliveringLeft) needyTurret = this.leftTurret;
+    else if (rightLow && !deliveringRight) needyTurret = this.rightTurret;
+
+    if (!needyTurret) return;
+
+    // Find best eligible available survivor
+    const candidates = this.survivors.filter(s => !s.isDead && !s.ammoDeliveryTask && s.status !== 'resting');
+    if (candidates.length === 0) return;
+
+    // Priority: Armory worker, then Airlock, then Workshop, then any worker
+    let runner = candidates.find(s => s.assignedRoom === 'armory');
+    if (!runner) runner = candidates.find(s => s.assignedRoom === 'airlock');
+    if (!runner) runner = candidates.find(s => s.assignedRoom === 'workshop');
+    if (!runner) runner = candidates[0];
+
+    if (runner) {
+      runner.startAmmoDelivery(needyTurret);
+      this.addNotification(`📦 Ammo low! ${runner.name} dispatched with crate for ${needyTurret.side.toUpperCase()} Turret!`, 'info');
+    }
+  }
+
+  // Toggle Manual Aim Mode
+  toggleManualAim() {
+    this.manualAim = !this.manualAim;
+    if (window.soundSystem) window.soundSystem.playBeep(true);
+    this.addNotification(`🎯 Manual Turret Aim: ${this.manualAim ? 'ENGAGED' : 'DISENGAGED'}`, this.manualAim ? 'warning' : 'info');
+    if (this.manualAim) {
+      this.particles.addFloatingText("MANUAL AIM ENGAGED", 640, 150, '#00f3ff');
+    }
+    const btn = document.getElementById('btn-manual-aim');
+    if (btn) {
+      btn.textContent = this.manualAim ? '🎯 Manual Aim: ON' : '🎯 Manual Aim: OFF';
+      btn.classList.toggle('active', this.manualAim);
+    }
+  }
+
+  // Draw Tactical HUD Crosshair
+  drawCrosshair(ctx) {
+    const mx = this.mouseX;
+    const my = this.mouseY;
+
+    ctx.save();
+    const pulse = Math.sin(Date.now() / 110) * 2;
+    const activeTurret = mx < 640 ? this.leftTurret : this.rightTurret;
+    const color = activeTurret.ammo > 0 ? '#00f3ff' : '#ff4757';
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+
+    // Outer reticle circle
+    ctx.beginPath();
+    ctx.arc(mx, my, 18 + pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Corner crosshair brackets
+    const b = 24;
+    ctx.beginPath();
+    ctx.moveTo(mx - b, my); ctx.lineTo(mx - b + 7, my);
+    ctx.moveTo(mx + b, my); ctx.lineTo(mx + b - 7, my);
+    ctx.moveTo(mx, my - b); ctx.lineTo(mx, my - b + 7);
+    ctx.moveTo(mx, my + b); ctx.lineTo(mx, my + b - 7);
+    ctx.stroke();
+
+    // Center dot
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // HUD Text near reticle
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = color;
+    ctx.fillText(`${activeTurret.side.toUpperCase()}: ${activeTurret.ammo}/${activeTurret.stats.maxAmmo}`, mx + 22, my - 6);
+    ctx.fillText(activeTurret.ammo > 0 ? '[L-CLICK FIRE]' : '[OUT OF AMMO]', mx + 22, my + 8);
+
+    ctx.restore();
+  }
+
+  gameLoop(now) {
+    if (!this.running) return;
+    const dt = Math.min(0.1, (now - this.lastTimestamp) / 1000);
+    this.lastTimestamp = now;
+
+    this.update(dt);
+    this.draw();
+
+    if (window.uiManager) {
+      window.uiManager.updateHUD();
+    }
+
+    requestAnimationFrame((t) => this.gameLoop(t));
+  }
+
+  start() {
+    this.lastTimestamp = performance.now();
+    requestAnimationFrame((t) => this.gameLoop(t));
+  }
+}
+
+window.GameEngine = GameEngine;
+
+
+// --- ui.js ---
+// UI Manager & Modal Controllers
+class UIManager {
+  constructor() {
+    this.modalOverlay = document.getElementById('modal-overlay');
+    this.modalContent = document.getElementById('modal-content');
+    this.activeModal = null;
+  }
+
+  updateHUD() {
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    // Day & Time
+    const hours = Math.floor(engine.dayTime);
+    const mins = Math.floor((engine.dayTime % 1) * 60);
+    const timeStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    const dayEl = document.getElementById('hud-day');
+    if (dayEl) dayEl.textContent = `Day ${engine.dayNumber} - ${timeStr}`;
+
+    // Resources
+    const res = engine.resources;
+    this.setVal('res-ammo', Math.floor(res.ammo), CONFIG.RESOURCE_CAPS.ammo);
+    this.setVal('res-power', Math.floor(res.power), CONFIG.RESOURCE_CAPS.power);
+    this.setVal('res-food', Math.floor(res.food), CONFIG.RESOURCE_CAPS.food);
+    this.setVal('res-water', Math.floor(res.water), CONFIG.RESOURCE_CAPS.water);
+    this.setVal('res-metal', Math.floor(res.metal), CONFIG.RESOURCE_CAPS.metal);
+    this.setVal('res-gunpowder', Math.floor(res.gunpowder), CONFIG.RESOURCE_CAPS.gunpowder);
+    this.setVal('res-fuel', Math.floor(res.fuel), CONFIG.RESOURCE_CAPS.fuel);
+
+    // Population
+    const aliveCount = engine.survivors.filter(s => !s.isDead).length;
+    const popEl = document.getElementById('hud-pop');
+    if (popEl) popEl.textContent = `${aliveCount} Alive`;
+
+    // Threat Radar
+    const radarEl = document.getElementById('hud-radar');
+    if (radarEl) {
+      if (engine.waveManager.isHordeActive) {
+        radarEl.className = 'radar-badge danger pulse';
+        radarEl.innerHTML = `⚠️ HORDE ATTACKING! (Wave ${engine.waveManager.currentWave})`;
+      } else {
+        const secs = Math.ceil(engine.waveManager.timer);
+        radarEl.className = secs <= 15 ? 'radar-badge warning pulse' : 'radar-badge normal';
+        radarEl.innerHTML = `📡 Swarm in: ${secs}s (Wave ${engine.waveManager.currentWave + 1})`;
+      }
+    }
+
+    // Turret quick HUD bars
+    this.updateTurretWidget('left-turret-hud', engine.leftTurret);
+    this.updateTurretWidget('right-turret-hud', engine.rightTurret);
+  }
+
+  setVal(id, current, max) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = `${current}/${max}`;
+      // Highlight low ammo
+      if (id === 'res-ammo') {
+        el.style.color = current < 50 ? '#ff4d4d' : current < 150 ? '#ffaa00' : '#ffeaa7';
+      }
+    }
+  }
+
+  updateTurretWidget(containerId, turret) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const engine = window.gameEngine;
+    if (!engine) return;
+
+    const ammoRatio = turret.ammo / turret.stats.maxAmmo;
+    const hpRatio = turret.health / turret.maxHealth;
+
+    const ammoStatusClass = turret.ammo === 0 ? 'critical pulse' : ammoRatio < 0.25 ? 'warning pulse' : '';
+    const alertBadge = turret.ammo === 0
+      ? '<span class="hud-alert-badge danger">DEPLETED!</span>'
+      : ammoRatio < 0.25
+        ? '<span class="hud-alert-badge warn">LOW AMMO</span>'
+        : '';
+
+    const isCarrierEnRoute = engine.survivors.some(s => s.ammoDeliveryTask && s.ammoDeliveryTask.turret === turret);
+    const carrierBadge = isCarrierEnRoute ? '<span class="badge-carrier">📦 RUNNER EN ROUTE</span>' : '';
+
+    el.innerHTML = `
+      <div class="turret-hud-header">
+        <div class="turret-hud-title">🛡️ ${turret.side.toUpperCase()} SENTRY [T${turret.tierIndex + 1}]</div>
+        ${carrierBadge || alertBadge}
+      </div>
+      <div class="hud-bar-row ${ammoStatusClass}">
+        <span class="hud-label">📦 AMMO:</span>
+        <div class="progress-bar">
+          <div class="progress-fill ${ammoRatio < 0.15 ? 'bar-red' : ammoRatio < 0.4 ? 'bar-amber' : 'bar-green'}" style="width: ${ammoRatio * 100}%"></div>
+        </div>
+        <span class="val-text">${turret.ammo}/${turret.stats.maxAmmo}</span>
+      </div>
+      <div class="hud-bar-row">
+        <span class="hud-label">❤️ HULL:</span>
+        <div class="progress-bar">
+          <div class="progress-fill ${hpRatio < 0.3 ? 'bar-red' : 'bar-blue'}" style="width: ${hpRatio * 100}%"></div>
+        </div>
+        <span class="val-text">${Math.round(turret.health)}/${turret.maxHealth}</span>
+      </div>
+      <div class="turret-btn-row">
+        <button class="btn btn-sm btn-action" onclick="window.gameEngine.${turret.side}Turret.reload()">RELOAD (50)</button>
+        <button class="btn btn-sm btn-secondary" onclick="window.gameEngine.${turret.side}Turret.repair()">REPAIR (10M)</button>
+        <button class="btn btn-sm" title="Target Priority: ${turret.priorityMode}" onclick="window.gameEngine.${turret.side}Turret.cyclePriority(); window.uiManager.updateHUD();">🎯 ${turret.priorityMode.toUpperCase().slice(0, 4)}</button>
+        <button class="btn btn-sm btn-accent" onclick="window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">SPECS</button>
+      </div>
+    `;
+  }
+
+  openRoomModal(room) {
+    const engine = window.gameEngine;
+    const workers = engine.survivors.filter(s => s.assignedRoom === room.id && !s.isDead);
+    const unassigned = engine.survivors.filter(s => s.assignedRoom !== room.id && !s.isDead);
+
+    const upgradeCost = room.level * 40;
+    const canUpgrade = engine.resources.metal >= upgradeCost;
+
+    let prodHtml = '';
+    if (room.produces) {
+      prodHtml = `
+        <div class="modal-info-box">
+          <strong>Production Yield:</strong> ${room.produces.toUpperCase()} (+${room.baseRate * room.level}/s with workers)
+          ${room.cost ? `<br><span class="text-dim">Consumes: ${Object.entries(room.cost).map(([k, v]) => `${k}: ${v}/s`).join(', ')}</span>` : ''}
+        </div>
+      `;
+    }
+
+    let workersListHtml = workers.map(w => `
+      <div class="worker-card">
+        <div>${w.avatar} <strong>${w.name}</strong> (${w.role}) - HP: ${Math.round(w.hp)}%</div>
+        <button class="btn btn-sm btn-danger" onclick="window.uiManager.reassignWorker('${w.id}', 'quarters_1')">Unassign</button>
+      </div>
+    `).join('');
+
+    if (workers.length === 0) {
+      workersListHtml = `<p class="text-dim">No survivors currently working in this room. Room is idle!</p>`;
+    }
+
+    let assignOptionsHtml = unassigned.map(u => `
+      <option value="${u.id}">${u.avatar} ${u.name} (${u.role})</option>
+    `).join('');
+
+    this.showModal(`
+      <div class="modal-header">
+        <h2>${room.icon} ${room.name} (Tier ${room.level})</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <p class="modal-desc">${room.desc}</p>
+      ${prodHtml}
+      <div class="modal-section">
+        <h3>Assigned Crew (${workers.length}/${room.maxWorkers})</h3>
+        <div class="workers-container">${workersListHtml}</div>
+        ${workers.length < room.maxWorkers && unassigned.length > 0 ? `
+          <div class="assign-row">
+            <select id="assign-select" class="form-select">${assignOptionsHtml}</select>
+            <button class="btn btn-primary" onclick="window.uiManager.assignSelectedWorker('${room.id}')">Assign Worker</button>
+          </div>
+        ` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-accent" ${!canUpgrade ? 'disabled' : ''} onclick="window.uiManager.upgradeRoom('${room.id}')">
+          Upgrade Room (Cost: ${upgradeCost} Metal)
+        </button>
+        <button class="btn btn-secondary" onclick="window.uiManager.closeModal()">Close</button>
+      </div>
+    `);
+  }
+
+  assignSelectedWorker(roomId) {
+    const sel = document.getElementById('assign-select');
+    if (!sel) return;
+    const survivorId = sel.value;
+    const survivor = window.gameEngine.survivors.find(s => s.id === survivorId);
+    if (survivor) {
+      survivor.assignTo(roomId);
+      window.soundSystem.playBeep(true);
+      const room = window.gameEngine.getRoom(roomId);
+      this.openRoomModal(room);
+    }
+  }
+
+  reassignWorker(survivorId, targetRoomId) {
+    const survivor = window.gameEngine.survivors.find(s => s.id === survivorId);
+    if (survivor) {
+      const prevRoom = survivor.assignedRoom;
+      survivor.assignTo(targetRoomId);
+      window.soundSystem.playBeep(true);
+      const room = window.gameEngine.getRoom(prevRoom);
+      if (room) this.openRoomModal(room);
+    }
+  }
+
+  upgradeRoom(roomId) {
+    const room = window.gameEngine.getRoom(roomId);
+    if (room && room.upgrade()) {
+      this.openRoomModal(room);
+    }
+  }
+
+  openTurretModal(turret) {
+    const nextTier = CONFIG.TURRET_TIERS[turret.tierIndex + 1];
+    const canUpgrade = nextTier && window.gameEngine.resources.metal >= nextTier.upgradeCost.metal;
+
+    this.showModal(`
+      <div class="modal-header">
+        <h2>🛡️ ${turret.side.toUpperCase()} DEFENSE TURRET</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <div class="modal-section">
+        <div class="turret-spec-grid">
+          <div><strong>Model:</strong> ${turret.stats.name}</div>
+          <div><strong>Damage:</strong> ${turret.stats.damage}</div>
+          <div><strong>Fire Rate:</strong> ${(1 / turret.stats.fireRate).toFixed(1)} shots/sec</div>
+          <div><strong>Effective Range:</strong> ${turret.stats.range} px</div>
+          <div><strong>Magazine:</strong> ${turret.ammo} / ${turret.stats.maxAmmo} rounds</div>
+          <div><strong>Durability:</strong> ${Math.round(turret.health)} / ${turret.maxHealth} HP</div>
+          <div><strong>Zombies Slain:</strong> ${turret.kills}</div>
+          <div><strong>Priority:</strong> <span class="text-accent">${turret.priorityMode.toUpperCase()}</span></div>
+        </div>
+        <div style="margin-top: 10px;">
+          <label style="font-size: 11px; font-weight: bold; color: #a0aec0;">🎯 TARGETING PRIORITIZATION:</label>
+          <div class="priority-btn-group">
+            <button class="priority-btn ${turret.priorityMode === 'nearest' ? 'active' : ''}" onclick="window.gameEngine.${turret.side}Turret.setPriority('nearest'); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">Nearest</button>
+            <button class="priority-btn ${turret.priorityMode === 'lowest_hp' ? 'active' : ''}" onclick="window.gameEngine.${turret.side}Turret.setPriority('lowest_hp'); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">Lowest HP</button>
+            <button class="priority-btn ${turret.priorityMode === 'strongest' ? 'active' : ''}" onclick="window.gameEngine.${turret.side}Turret.setPriority('strongest'); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">Strongest</button>
+            <button class="priority-btn ${turret.priorityMode === 'boss' ? 'active' : ''}" onclick="window.gameEngine.${turret.side}Turret.setPriority('boss'); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">Boss/Brute</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ${window.gameEngine.manualAim ? 'btn-action' : 'btn-secondary'}" onclick="window.gameEngine.toggleManualAim(); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">
+          🎯 Manual Mouse Aim Mode: ${window.gameEngine.manualAim ? 'ENGAGED (Click to Aim & Fire)' : 'DISABLED (Autonomous AI)'}
+        </button>
+        <button class="btn btn-action" onclick="window.gameEngine.${turret.side}Turret.reload(); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">
+          Reload Ammo from Bunker Stock (50 rounds)
+        </button>
+        <button class="btn btn-secondary" onclick="window.gameEngine.${turret.side}Turret.repair(); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">
+          Repair Turret (10 Metal)
+        </button>
+        ${nextTier ? `
+          <button class="btn btn-accent" ${!canUpgrade ? 'disabled' : ''} onclick="window.gameEngine.${turret.side}Turret.upgrade(); window.uiManager.openTurretModal(window.gameEngine.${turret.side}Turret)">
+            Upgrade to ${nextTier.name} (${nextTier.upgradeCost.metal} Metal${nextTier.upgradeCost.gunpowder ? `, ${nextTier.upgradeCost.gunpowder} Powder` : ''})
+          </button>
+        ` : `<div class="badge-max">MAX LEVEL REACHED</div>`}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="window.uiManager.closeModal()">Close</button>
+      </div>
+    `);
+  }
+
+  openSurvivorsRoster() {
+    const engine = window.gameEngine;
+    const listHtml = engine.survivors.map(s => {
+      if (s.isDead) {
+        return `
+          <div class="survivor-roster-row dead">
+            <div>💀 <strong>${s.name}</strong> (${s.role}) - <span class="text-danger">DECEASED</span></div>
+          </div>
+        `;
+      }
+      const room = engine.getRoom(s.assignedRoom);
+      const levelTitle = CONFIG.SURVIVOR_LEVEL_TITLES[s.level - 1] || 'Veteran';
+      const effBonus = (s.level - 1) * 25;
+      const xpRatio = Math.min(1.0, s.xp / s.xpToNext);
+
+      let statusBadge = '<span style="color: #2ecc71; font-weight: bold;">⚙️ Working</span>';
+      if (s.ammoDeliveryTask) {
+        statusBadge = `<span class="badge-carrier">📦 RUNNER: ${s.ammoDeliveryTask.turret.side.toUpperCase()} TURRET</span>`;
+      } else if (s.needState === 'seeking_food') {
+        statusBadge = '<span style="color: #f39c12; font-weight: bold;">🍲 Eating at Mess Hall</span>';
+      } else if (s.needState === 'seeking_water') {
+        statusBadge = '<span style="color: #3498db; font-weight: bold;">💧 Drinking at Filtration</span>';
+      } else if (s.needState === 'resting') {
+        statusBadge = '<span style="color: #a29bfe; font-weight: bold;">💤 Resting in Quarters</span>';
+      }
+
+      return `
+        <div class="survivor-roster-row">
+          <div class="survivor-main-info">
+            <span class="avatar-large">${s.avatar}</span>
+            <div style="flex: 1;">
+              <div>
+                <strong>${s.name}</strong> - <span class="text-accent">${s.role}</span>
+                <span style="background: rgba(241, 196, 15, 0.2); border: 1px solid #f1c40f; color: #f1c40f; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 6px;">
+                  ⭐ Lv.${s.level} ${levelTitle} (+${effBonus}% Spd)
+                </span>
+                <span style="margin-left: 8px; font-size: 10px;">${statusBadge}</span>
+              </div>
+              <div class="survivor-stats-mini">
+                HP: ${Math.round(s.hp)}% | Hunger: ${Math.round(s.hunger)}% | Thirst: ${Math.round(s.thirst)}% | Stamina: ${Math.round(100 - s.fatigue)}%
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <div class="survivor-xp-bar">
+                  <div class="survivor-xp-fill" style="width: ${xpRatio * 100}%;"></div>
+                </div>
+                <span style="font-size: 9px; color: #ffd166;">XP: ${Math.floor(s.xp)}/${s.xpToNext}</span>
+              </div>
+            </div>
+          </div>
+          <div class="survivor-assign-select">
+            <label>Station:</label>
+            <select class="form-select sm" onchange="window.uiManager.reassignWorker('${s.id}', this.value)">
+              ${CONFIG.ROOM_TEMPLATES.map(rt => `<option value="${rt.id}" ${s.assignedRoom === rt.id ? 'selected' : ''}>${rt.icon} ${rt.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.showModal(`
+      <div class="modal-header">
+        <h2>👥 BUNKER INHABITANTS ROSTER</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <p class="modal-desc">Monitor health, needs, and work stations of your survivors to keep the bunker thriving.</p>
+      <div class="roster-container">${listHtml}</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="window.uiManager.closeModal()">Close</button>
+      </div>
+    `);
+  }
+
+  openResearchModal() {
+    const engine = window.gameEngine;
+    const tt = engine.techTree;
+
+    const techs = [
+      { id: 'autoConduit', name: 'Automated Ammo Conduit', desc: 'Directly supplies ammo from the bunker to surface turrets automatically when below 30%.', cost: 120, researched: tt.autoConduit },
+      { id: 'heavyCaliber', name: 'High-Velocity Ammo (+30% Damage)', desc: 'Manufactures AP rounds increasing all turret damage by 30%.', cost: 100, researched: tt.heavyCaliber },
+      { id: 'ammoOptimization', name: 'Munitions Press Efficiency (+40% Ammo)', desc: 'Optimizes Armory powder press, yielding 40% more ammo per cycle.', cost: 80, researched: tt.ammoOptimization },
+      { id: 'hydroBoost', name: 'Aeroponic Nutrient Misting (+50% Food)', desc: 'Advanced nutrient formulation boosting crop yields.', cost: 60, researched: tt.hydroBoost },
+      { id: 'fortifiedWalls', name: 'Reinforced Cabin Barricade (1000 HP)', desc: 'Steel plating and concrete bracing for the surface cabin.', cost: 140, researched: tt.fortifiedWalls },
+      { id: 'longRangeRadar', name: 'Long-Range Doppler Radar', desc: 'Gives 15 extra seconds of early warning before incoming hordes.', cost: 90, researched: tt.longRangeRadar }
+    ];
+
+    const techListHtml = techs.map(t => {
+      const canAfford = engine.resources.metal >= t.cost;
+      return `
+        <div class="tech-card ${t.researched ? 'researched' : ''}">
+          <div class="tech-header">
+            <h4>${t.name}</h4>
+            <span class="tech-status">${t.researched ? '✅ ACTIVE' : `Cost: ${t.cost} Metal`}</span>
+          </div>
+          <p>${t.desc}</p>
+          ${!t.researched ? `
+            <button class="btn btn-sm btn-primary" ${!canAfford ? 'disabled' : ''} onclick="window.uiManager.researchTech('${t.id}', ${t.cost})">
+              Research Tech
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    this.showModal(`
+      <div class="modal-header">
+        <h2>🔬 TECH LAB RESEARCH TREE</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <div class="tech-grid">${techListHtml}</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="window.uiManager.closeModal()">Close</button>
+      </div>
+    `);
+  }
+
+  researchTech(techId, cost) {
+    const engine = window.gameEngine;
+    if (engine.resources.metal >= cost && !engine.techTree[techId]) {
+      engine.resources.metal -= cost;
+      engine.techTree[techId] = true;
+      if (techId === 'fortifiedWalls') {
+        engine.houseMaxHp = 1000;
+        engine.houseHp = 1000;
+      }
+      window.soundSystem.playBeep(true);
+      engine.particles.spawnSparks(640, 400, 30, '#00d2d3');
+      engine.addNotification(`🔬 Technology Unlocked: ${techId}!`, 'success');
+      this.openResearchModal();
+    }
+  }
+
+  openExpeditionModal() {
+    const engine = window.gameEngine;
+    this.showModal(`
+      <div class="modal-header">
+        <h2>🌲 SURFACE FOREST EXPEDITION</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <p class="modal-desc">Send a scout into the surrounding woods between hordes to scavenge for ammo crates, metal parts, or search for survivors.</p>
+      <div class="expedition-options">
+        <div class="expedition-card">
+          <h4>🌲 Quick Forest Recon (Risk: Low)</h4>
+          <p>Scout the perimeter trees for abandoned supplies.</p>
+          <p><strong>Reward:</strong> 30-60 Ammo, 20 Metal, 10 Fuel</p>
+          <button class="btn btn-action" onclick="window.uiManager.launchExpedition('recon')">Send Scout (Costs 20 Food, 20 Water)</button>
+        </div>
+        <div class="expedition-card">
+          <h4>🏚️ Ransack Abandoned Outpost (Risk: Medium)</h4>
+          <p>Scour a military bunker checkpoint deeper in the forest.</p>
+          <p><strong>Reward:</strong> 120 Ammo, 60 Metal, 40 Powder, chance of finding a Survivor!</p>
+          <button class="btn btn-accent" onclick="window.uiManager.launchExpedition('outpost')">Send Expedition (Costs 40 Food, 40 Water)</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="window.uiManager.closeModal()">Close</button>
+      </div>
+    `);
+  }
+
+  launchExpedition(type) {
+    const engine = window.gameEngine;
+    const foodCost = type === 'recon' ? 20 : 40;
+    const waterCost = type === 'recon' ? 20 : 40;
+
+    if (engine.resources.food < foodCost || engine.resources.water < waterCost) {
+      alert("Not enough Food or Water supplies to prepare rations for this expedition!");
+      return;
+    }
+
+    engine.resources.food -= foodCost;
+    engine.resources.water -= waterCost;
+    this.closeModal();
+
+    engine.addNotification("Scout dispatched into the deep forest...", "info");
+    window.soundSystem.playBeep(true);
+
+    setTimeout(() => {
+      if (type === 'recon') {
+        const ammoFound = 40 + Math.floor(Math.random() * 30);
+        const metalFound = 20 + Math.floor(Math.random() * 15);
+        engine.resources.ammo = Math.min(CONFIG.RESOURCE_CAPS.ammo, engine.resources.ammo + ammoFound);
+        engine.resources.metal = Math.min(CONFIG.RESOURCE_CAPS.metal, engine.resources.metal + metalFound);
+        engine.addNotification(`Scout returned with ${ammoFound} Ammo and ${metalFound} Metal!`, "success");
+      } else {
+        const ammoFound = 100 + Math.floor(Math.random() * 50);
+        const metalFound = 50 + Math.floor(Math.random() * 30);
+        const powderFound = 30 + Math.floor(Math.random() * 20);
+        engine.resources.ammo = Math.min(CONFIG.RESOURCE_CAPS.ammo, engine.resources.ammo + ammoFound);
+        engine.resources.metal = Math.min(CONFIG.RESOURCE_CAPS.metal, engine.resources.metal + metalFound);
+        engine.resources.gunpowder = Math.min(CONFIG.RESOURCE_CAPS.gunpowder, engine.resources.gunpowder + powderFound);
+        
+        // Chance to rescue survivor
+        if (Math.random() < 0.6 && engine.survivors.length < 12) {
+          const names = ['Jackson Cole', 'Maya Lin', 'Carlos Ortiz', 'Samantha Bell', 'Lucas Reed'];
+          const randName = names[Math.floor(Math.random() * names.length)];
+          const newSurvivor = new Survivor({
+            id: 's_' + Date.now(),
+            name: randName,
+            role: 'Outpost Survivor',
+            skill: 'Generalist',
+            avatar: '🧑‍🚀',
+            specialty: 'armory',
+            assignedRoom: 'armory'
+          });
+          engine.survivors.push(newSurvivor);
+          engine.addNotification(`🎉 Rescued a lost survivor: ${randName}!`, "success");
+        } else {
+          engine.addNotification(`Expedition returned with ${ammoFound} Ammo, ${metalFound} Metal, and ${powderFound} Gunpowder!`, "success");
+        }
+      }
+    }, 4000);
+  }
+
+  openHelpModal() {
+    this.showModal(`
+      <div class="modal-header">
+        <h2>📖 SURVIVAL MANUAL & BUNKER GUIDE</h2>
+        <button class="modal-close" onclick="window.uiManager.closeModal()">&times;</button>
+      </div>
+      <div class="help-body">
+        <p><strong>Bunker Overview:</strong> Based on the cross-section blueprint, your base consists of a surface cabin fortified in the dark forest and a 4-level underground bunker connected by a central elevator.</p>
+        <h4>🎯 Key Priorities:</h4>
+        <ul>
+          <li><strong>Ammunition Supply:</strong> Turrets auto-fire at zombies, but consume ammo rapidly! Assign survivors to the <strong>Munitions Armory</strong> to craft ammo from Metal and Gunpowder.</li>
+          <li><strong>Turret Reloads:</strong> Click the RELOAD button on the Left/Right turrets or research the Automated Ammo Conduit in the Tech Lab.</li>
+          <li><strong>Power Grid:</strong> The <strong>Diesel Generator</strong> powers turrets, lights, and room machinery. Keep it stocked with fuel refined from the Bio-Refinery.</li>
+          <li><strong>Inhabitant Sustenance:</strong> Survivors need Food from Hydroponics and Water from Filtration. Resting them in Living Quarters restores stamina.</li>
+          <li><strong>Zombie Hordes:</strong> The radar displays when the next horde approaches. Brace your defenses and ensure turrets are fully loaded!</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="window.uiManager.closeModal()">Got it!</button>
+      </div>
+    `);
+  }
+
+  showGameOver(reason) {
+    const engine = window.gameEngine;
+    this.showModal(`
+      <div class="modal-header">
+        <h2 class="text-danger">☠️ GAME OVER</h2>
+      </div>
+      <p class="modal-desc">${reason}</p>
+      <div class="gameover-stats">
+        <div><strong>Days Survived:</strong> ${engine.stats.daysSurvived}</div>
+        <div><strong>Waves Repelled:</strong> ${engine.waveManager.currentWave}</div>
+        <div><strong>Zombies Slain:</strong> ${engine.stats.zombiesKilled}</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-action" onclick="location.reload()">Restart New Bunker</button>
+      </div>
+    `);
+  }
+
+  showModal(html) {
+    if (this.modalOverlay && this.modalContent) {
+      this.modalContent.innerHTML = html;
+      this.modalOverlay.style.display = 'flex';
+      this.activeModal = true;
+    }
+  }
+
+  closeModal() {
+    if (this.modalOverlay) {
+      this.modalOverlay.style.display = 'none';
+      this.activeModal = false;
+    }
+  }
+}
+
+window.UIManager = UIManager;
+
+
+// --- main.js ---
+// Main Game Entry Point & Initialization
+window.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+
+  // Initialize systems
+  window.uiManager = new UIManager();
+  window.gameEngine = new GameEngine(canvas);
+  window.engine = window.gameEngine;
+
+  // Speed controls
+  document.getElementById('btn-speed-pause').addEventListener('click', () => {
+    window.gameEngine.isPaused = !window.gameEngine.isPaused;
+    document.getElementById('btn-speed-pause').textContent = window.gameEngine.isPaused ? '▶️ Resume' : '⏸️ Pause';
+  });
+
+  document.getElementById('btn-speed-1x').addEventListener('click', () => {
+    window.gameEngine.timeScale = 1.0;
+    window.gameEngine.isPaused = false;
+    updateSpeedButtons('btn-speed-1x');
+  });
+
+  document.getElementById('btn-speed-2x').addEventListener('click', () => {
+    window.gameEngine.timeScale = 2.0;
+    window.gameEngine.isPaused = false;
+    updateSpeedButtons('btn-speed-2x');
+  });
+
+  document.getElementById('btn-speed-5x').addEventListener('click', () => {
+    window.gameEngine.timeScale = 5.0;
+    window.gameEngine.isPaused = false;
+    updateSpeedButtons('btn-speed-5x');
+  });
+
+  // Top action buttons
+  const manualAimBtn = document.getElementById('btn-manual-aim');
+  if (manualAimBtn) {
+    manualAimBtn.addEventListener('click', () => {
+      window.gameEngine.toggleManualAim();
+    });
+  }
+
+  // Tactical CRT Scanlines Toggle
+  const crtBtn = document.getElementById('btn-crt-toggle');
+  const crtOverlay = document.getElementById('crt-overlay');
+  let crtActive = false;
+
+  function toggleCRT() {
+    crtActive = !crtActive;
+    document.body.classList.toggle('crt-active', crtActive);
+    if (crtOverlay) {
+      crtOverlay.style.display = crtActive ? 'block' : 'none';
+    }
+    if (crtBtn) {
+      crtBtn.textContent = crtActive ? '📺 CRT: ON' : '📺 CRT: OFF';
+      crtBtn.classList.toggle('active', crtActive);
+    }
+    if (window.soundSystem && window.soundSystem.playCRTClick) {
+      window.soundSystem.playCRTClick(crtActive);
+    }
+  }
+
+  if (crtBtn) {
+    crtBtn.addEventListener('click', toggleCRT);
+  }
+
+  document.getElementById('btn-audio-toggle').addEventListener('click', () => {
+    const isMuted = window.soundSystem.toggleMute();
+    document.getElementById('btn-audio-toggle').textContent = isMuted ? '🔇 Unmute' : '🔊 Sound';
+  });
+
+  document.getElementById('btn-open-roster').addEventListener('click', () => {
+    window.uiManager.openSurvivorsRoster();
+  });
+
+  document.getElementById('btn-open-research').addEventListener('click', () => {
+    window.uiManager.openResearchModal();
+  });
+
+  document.getElementById('btn-open-expedition').addEventListener('click', () => {
+    window.uiManager.openExpeditionModal();
+  });
+
+  document.getElementById('btn-open-help').addEventListener('click', () => {
+    window.uiManager.openHelpModal();
+  });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      document.getElementById('btn-speed-pause').click();
+    } else if (e.key === '1') {
+      document.getElementById('btn-speed-1x').click();
+    } else if (e.key === '2') {
+      document.getElementById('btn-speed-2x').click();
+    } else if (e.key === '3') {
+      document.getElementById('btn-speed-5x').click();
+    } else if (e.key === 'm' || e.key === 'M') {
+      // Toggle manual crosshair aim
+      window.gameEngine.toggleManualAim();
+    } else if (e.key === 'c' || e.key === 'C') {
+      toggleCRT();
+    } else if (e.key === 'r' || e.key === 'R') {
+      // Quick reload both turrets
+      window.gameEngine.leftTurret.reload();
+      window.gameEngine.rightTurret.reload();
+    } else if (e.key === 'Escape') {
+      window.uiManager.closeModal();
+    }
+  });
+
+  function updateSpeedButtons(activeId) {
+    ['btn-speed-1x', 'btn-speed-2x', 'btn-speed-5x'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', id === activeId);
+    });
+    const pauseBtn = document.getElementById('btn-speed-pause');
+    if (pauseBtn) pauseBtn.textContent = '⏸️ Pause';
+  }
+
+  // Start the engine loop
+  window.gameEngine.start();
+  window.gameEngine.addNotification("🏕️ Welcome Commander! Maintain ammo supplies and defend against the horde.", "info");
+});
+
+</script>
+</body>
+</html>
