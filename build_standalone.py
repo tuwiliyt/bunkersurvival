@@ -47,4 +47,8 @@ out_path = '/content/bunker_survival_standalone.html'
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write(html)
 
-print(f"Successfully generated standalone single-file game at: {out_path}")
+local_out_path = os.path.join(BASE_DIR, 'bunker_survival_standalone.html')
+with open(local_out_path, 'w', encoding='utf-8') as f:
+    f.write(html)
+
+print(f"Successfully generated standalone single-file game at:\n - {out_path}\n - {local_out_path}")

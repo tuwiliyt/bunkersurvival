@@ -757,3 +757,48 @@ body.crt-active .turret-hud-overlay {
   color: #000;
   font-weight: bold;
 }
+
+/* Atmospheric & Environmental Presentation Enhancements */
+.game-container {
+  border: 1px solid #1a222d;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 1px rgba(243, 156, 18, 0.2);
+}
+
+#game-canvas {
+  background: #04060a;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Atmospheric ambient backlight behind bunker viewport */
+.viewport-ambient-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 240px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, rgba(243, 156, 18, 0.04) 0%, rgba(0, 0, 0, 0) 70%);
+  z-index: 1;
+}
+
+/* Environmental status indicators */
+.env-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(74, 85, 104, 0.5);
+  color: #cbd5e0;
+}
+
+.env-badge-horde {
+  background: rgba(192, 57, 43, 0.3);
+  border-color: #e74c3c;
+  color: #ff7675;
+  animation: pulseAnim 0.7s infinite alternate;
+}
+

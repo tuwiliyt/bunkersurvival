@@ -42,6 +42,35 @@ class SoundSystem {
     this.ensureContext();
     const t = this.ctx.currentTime;
 
+    if (type === 'plasma') {
+      // Futuristic electromagnetic capacitor discharge & ion beam sizzle
+      const osc1 = this.ctx.createOscillator();
+      const oscGain1 = this.ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(880, t);
+      osc1.frequency.exponentialRampToValueAtTime(70, t + 0.18);
+      oscGain1.gain.setValueAtTime(0.55, t);
+      oscGain1.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+      osc1.connect(oscGain1);
+      oscGain1.connect(this.masterGain);
+      osc1.start(t);
+      osc1.stop(t + 0.19);
+
+      // Resonant bass punch
+      const osc2 = this.ctx.createOscillator();
+      const oscGain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(160, t);
+      osc2.frequency.exponentialRampToValueAtTime(35, t + 0.22);
+      oscGain2.gain.setValueAtTime(0.7, t);
+      oscGain2.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+      osc2.connect(oscGain2);
+      oscGain2.connect(this.masterGain);
+      osc2.start(t);
+      osc2.stop(t + 0.23);
+      return;
+    }
+
     // Noise buffer for the crack
     const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
